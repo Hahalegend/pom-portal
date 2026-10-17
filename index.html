@@ -740,7 +740,10 @@
         button.textContent = "Verifying...";
         const data = await getAPI("getWorkReports", { pin: submittingPin });
         if (!currentUser || currentUser.pin !== submittingPin) return;
-        workReports = Array.isArray(data.reports) ? data.reports : [];
+        if (!Array.isArray(data.reports)) {
+          throw new Error("The deployed Apps Script is an older version and does not support work reports. Deploy a new version of Code.gs in Apps Script, then try again.");
+        }
+        workReports = data.reports;
         if (!workReports.some(report => report.id === reportId)) throw new Error("The server did not confirm that the report was saved");
         document.getElementById("work-report-form").reset();
         ["before", "after"].forEach(section => {
@@ -768,7 +771,10 @@
       try {
         const data = await getAPI("getWorkReports", { pin: loadingPin });
         if (!currentUser || currentUser.pin !== loadingPin) return;
-        workReports = Array.isArray(data.reports) ? data.reports : [];
+        if (!Array.isArray(data.reports)) {
+          throw new Error("The deployed Apps Script is an older version and does not support work reports. Deploy a new version of Code.gs.");
+        }
+        workReports = data.reports;
         renderWorkReportList();
       } catch (error) {
         if (!currentUser || currentUser.pin !== loadingPin) return;
