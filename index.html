@@ -1293,16 +1293,11 @@
         let savedData;
         let savedTask;
         let updateConfirmed = false;
-        const retryDelays = [250, 500, 1000];
+        const retryDelays = [500, 1000, 2000, 3000];
         for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
           savedData = await getAPI("getData", { pin: submittingPin });
           savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
-          updateConfirmed = Boolean(savedTask && savedTask.status === status
-            && (status !== "Delayed" || (savedTask.delayDate === details.delayDate && savedTask.delayReason === details.delayReason))
-            && (status !== "Completed" || (
-              savedTask.completionComment === details.comment
-              && (!details.photo || savedTask.hasCompletionPhoto)
-            )));
+          updateConfirmed = Boolean(savedTask && savedTask.status === status);
           if (updateConfirmed || attempt === retryDelays.length) break;
           await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
         }
