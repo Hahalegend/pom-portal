@@ -1054,12 +1054,15 @@
     }
 
     async function postData(body) {
-      await fetch(API_URL, {
+      const response = await fetch(API_URL, {
         method: "POST",
-        mode: "no-cors",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(body)
       });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      if (data.success === false) throw new Error(data.message || "The request was rejected");
+      return data;
     }
 
     function localDateString(date = new Date()) {
@@ -1273,6 +1276,7 @@
         } else {
           task.completionComment = details.comment;
           task.hasCompletionPhoto = Boolean(details.photo);
+          task.completedAt = new Date().toISOString();
         }
       }
       if (hasManagementAccess(currentUser.role)) renderManagementTasks();
@@ -1290,21 +1294,6 @@
           photo: details.photo || null
         });
         if (!currentUser || currentUser.pin !== submittingPin) return false;
-        let savedData;
-        let savedTask;
-        let updateConfirmed = false;
-        const retryDelays = [500, 1000, 2000, 3000];
-        for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
-          savedData = await getAPI("getData", { pin: submittingPin });
-          savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
-          updateConfirmed = Boolean(savedTask && savedTask.status === status);
-          if (updateConfirmed || attempt === retryDelays.length) break;
-          await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
-        }
-        if (!updateConfirmed) {
-          throw new Error("The task update was not visible after several checks. It may still have been saved; refresh the task list before retrying. If this continues, ask an administrator to deploy the latest Code.gs.");
-        }
-        allTasks = savedData.tasks;
         if (hasManagementAccess(currentUser.role)) renderManagementTasks();
         else renderWorkerTasks();
         return true;
