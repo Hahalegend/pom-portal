@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POM Operations Portal</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- ================= 1. LOGIN SCREEN ================= -->
+  <div id="screen-login" class="flex-1 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full space-y-6 text-center">
+      <div class="inline-block p-4 bg-amber-500/10 text-amber-500 rounded-full text-3xl">
+        <i class="fa-solid fa-industry"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white tracking-wide">POM Operations</h1>
+        <p class="text-xs text-slate-400 mt-1">Enter your assigned 4-digit PIN</p>
+      </div>
+
+      <div class="space-y-3">
+        <input type="password" id="login-pin" maxlength="4" placeholder="••••" 
+          class="w-full text-center tracking-widest text-2xl py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-amber-500">
+        <button onclick="handleLogin()" id="btn-login" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">
+          Sign In
+        </button>
+        <p id="login-error" class="text-xs text-rose-500 hidden font-medium">Invalid PIN. Please check with supervisor.</p>
+      </div>
+
+      <div class="text-[11px] text-slate-500 border-t border-slate-800 pt-3">
+        Demo PINs: <b>1111</b> (Management) | <b>2222</b> (Worker)
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TOP APP BAR (Hidden on Login) ================= -->
+  <header id="app-bar" class="bg-slate-900 border-b border-slate-800 px-4 py-3 hidden justify-between items-center sticky top-0 z-30">
+    <div class="flex items-center gap-2">
+      <span id="role-badge" class="text-[10px] font-black px-2 py-0.5 rounded uppercase"></span>
+      <div>
+        <div id="user-display" class="text-xs font-bold text-white"></div>
+        <div id="station-display" class="text-[10px] text-slate-400"></div>
+      </div>
+    </div>
+    <button onclick="handleLogout()" class="text-xs bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700">
+      <i class="fa-solid fa-right-from-bracket mr-1"></i> Exit
+    </button>
+  </header>
+
+  <!-- ================= 2. MANAGEMENT PAGE ================= -->
+  <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
+    <!-- Real-time KPI Overview -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
+        <div class="text-xl font-black text-white mt-1"><span id="m-throughput">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-[10px] text-slate-400 uppercase font-bold">OER Rate</span>
+        <div class="text-xl font-black text-amber-400 mt-1"><span id="m-oer">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-[10px] text-slate-400 uppercase font-bold">KER Rate</span>
+        <div class="text-xl font-black text-sky-400 mt-1"><span id="m-ker">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-[10px] text-slate-400 uppercase font-bold">Boiler Pressure</span>
+        <div class="text-xl font-black text-emerald-400 mt-1"><span id="m-boiler">--</span> <span class="text-xs font-normal text-slate-400">Bar</span></div>
+      </div>
+    </div>
+
+    <!-- Management Task Dispatcher -->
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+      <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+        <i class="fa-solid fa-plus text-amber-500"></i> Dispatch Station Job
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <select id="task-station" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+          <option value="Loading Ramp">Loading Ramp</option>
+          <option value="Sterilizer">Sterilizer</option>
+          <option value="Pressing">Pressing Station</option>
+          <option value="Clarification">Clarification</option>
+          <option value="Nut & Kernel">Nut & Kernel</option>
+          <option value="Boiler & Power">Boiler & Power</option>
+        </select>
+        <input type="text" id="task-title" placeholder="Job Title (e.g. Overhaul screw)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white col-span-2">
+        <input type="text" id="task-assigned" placeholder="Assignee (e.g. Shahrul)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+        <button onclick="submitNewTask()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs">
+          Dispatch Job
+        </button>
+      </div>
+    </div>
+
+    <!-- Management Task Monitor -->
+    <div class="space-y-3">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Station Monitoring</h2>
+      <div id="m-tasks-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </div>
+  </main>
+
+  <!-- ================= 3. WORKER PAGE ================= -->
+  <main id="screen-worker" class="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+      <div>
+        <h2 class="text-sm font-bold text-white">My Station Tasks</h2>
+        <p class="text-xs text-slate-400" id="w-station-banner">Showing tasks for your station</p>
+      </div>
+      <button onclick="refreshData()" class="text-xs bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700">
+        <i class="fa-solid fa-arrows-rotate"></i>
+      </button>
+    </div>
+
+    <!-- Operator Task Cards -->
+    <div id="w-tasks-container" class="space-y-3"></div>
+  </main>
+
+  <!-- ================= DELAY MODAL ================= -->
+  <div id="modal-delay" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-sm w-full p-5 space-y-4">
+      <h3 class="text-sm font-bold text-rose-400">Report Incomplete / Delay</h3>
+      <p id="delay-task-title" class="text-xs text-slate-400"></p>
+      <textarea id="delay-reason-input" rows="3" placeholder="Why could this task not be completed?" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white"></textarea>
+      <div class="flex gap-2 justify-end">
+        <button onclick="closeDelayModal()" class="px-3 py-1.5 text-xs text-slate-400 bg-slate-800 rounded">Cancel</button>
+        <button onclick="confirmDelay()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 rounded">Submit Delay</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT & LOGIC ================= -->
+  <script>
+    // -------------------------------------------------------------
+    // REPLACE THIS URL WITH YOUR GOOGLE APPS SCRIPT WEB APP URL:
+    // -------------------------------------------------------------
+    const API_URL = "https://script.google.com/macros/s/AKfycbxKKJFKR1OavDRVGCmKDYV_F2P34vF59wgf5uxMO2r1C-n1JfgWGDX6htJ0yta2lrRO2w/exec";
+
+    let currentUser = null;
+    let allTasks = [];
+    let activeDelayedTaskId = null;
+
+    async function handleLogin() {
+      const pin = document.getElementById('login-pin').value.trim();
+      const err = document.getElementById('login-error');
+      const btn = document.getElementById('btn-login');
+      err.classList.add('hidden');
+
+      if (!pin) return;
+      btn.innerText = "Checking...";
+
+      try {
+        const res = await fetch(`${API_URL}?action=login&pin=${pin}`);
+        const data = await res.json();
+
+        if (data.success) {
+          currentUser = data.user;
+          setupSession();
+        } else {
+          err.classList.remove('hidden');
+        }
+      } catch (e) {
+        // Offline demo fallback if API URL is not updated yet
+        if (pin === "1111") {
+          currentUser = { name: "Manager Azmi", role: "Management", station: "All" };
+          setupSession();
+        } else if (pin === "2222") {
+          currentUser = { name: "Shahrul (Press)", role: "Worker", station: "Pressing" };
+          setupSession();
+        } else {
+          err.classList.remove('hidden');
+        }
+      } finally {
+        btn.innerText = "Sign In";
+      }
+    }
+
+    function setupSession() {
+      document.getElementById('screen-login').classList.add('hidden');
+      document.getElementById('app-bar').classList.remove('hidden');
+      document.getElementById('app-bar').classList.add('flex');
+      document.getElementById('user-display').innerText = currentUser.name;
+      document.getElementById('station-display').innerText = "Station: " + currentUser.station;
+
+      const badge = document.getElementById('role-badge');
+      badge.innerText = currentUser.role;
+      badge.className = currentUser.role === 'Management' 
+        ? "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-amber-500 text-slate-950"
+        : "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-sky-500 text-slate-950";
+
+      if (currentUser.role === 'Management') {
+        document.getElementById('screen-management').classList.remove('hidden');
+      } else {
+        document.getElementById('screen-worker').classList.remove('hidden');
+        document.getElementById('w-station-banner').innerText = `Showing assigned tasks for ${currentUser.station}`;
+      }
+
+      refreshData();
+    }
+
+    function handleLogout() {
+      currentUser = null;
+      document.getElementById('screen-login').classList.remove('hidden');
+      document.getElementById('screen-management').classList.add('hidden');
+      document.getElementById('screen-worker').classList.add('hidden');
+      document.getElementById('app-bar').classList.add('hidden');
+      document.getElementById('login-pin').value = "";
+    }
+
+    async function refreshData() {
+      try {
+        const res = await fetch(`${API_URL}?action=getData`);
+        const data = await res.json();
+        allTasks = data.tasks || [];
+
+        if (data.kpi && data.kpi.length > 0) {
+          document.getElementById('m-throughput').innerText = data.kpi[1] || '850';
+          document.getElementById('m-oer').innerText = data.kpi[2] || '19.8';
+          document.getElementById('m-ker').innerText = data.kpi[3] || '5.4';
+          document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
+        }
+      } catch (e) {
+        // Fallback demo tasks
+        if (allTasks.length === 0) {
+          allTasks = [
+            { id: "TSK-101", station: "Pressing", title: "Adjust Cone Pressure on Press 2", priority: "High", assigned: "Shahrul (Press)", deadline: "17:00", status: "Delayed", delayReason: "Hydraulic oil leak" },
+            { id: "TSK-102", station: "Boiler & Power", title: "Check feed water conductivity", priority: "Medium", assigned: "Azlan", deadline: "19:00", status: "Pending", delayReason: "" }
+          ];
+        }
+      }
+
+      if (currentUser && currentUser.role === 'Management') {
+        renderManagementTasks();
+      } else if (currentUser && currentUser.role === 'Worker') {
+        renderWorkerTasks();
+      }
+    }
+
+    function renderManagementTasks() {
+      const container = document.getElementById('m-tasks-container');
+      container.innerHTML = "";
+      allTasks.forEach(t => {
+        const isDelayed = t.status === "Delayed";
+        container.innerHTML += `
+          <div class="bg-slate-900 border ${isDelayed ? 'border-rose-500 bg-rose-950/10' : 'border-slate-800'} p-4 rounded-xl space-y-2">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">${t.station}</span>
+              <span class="text-[10px] font-bold ${isDelayed ? 'text-rose-400' : 'text-slate-400'}">${t.status}</span>
+            </div>
+            <h4 class="text-xs font-bold text-white">${t.title}</h4>
+            <div class="text-[11px] text-slate-400">Assigned: ${t.assigned}</div>
+            ${isDelayed ? `<div class="bg-rose-950/40 border border-rose-800/60 p-2 rounded text-[11px] text-rose-300"><b>Reason:</b> ${t.delayReason}</div>` : ''}
+          </div>
+        `;
+      });
+    }
+
+    function renderWorkerTasks() {
+      const container = document.getElementById('w-tasks-container');
+      container.innerHTML = "";
+      
+      // Filter tasks assigned to worker's station or assigned name
+      const filtered = allTasks.filter(t => t.station === currentUser.station || t.assigned.includes(currentUser.name));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-xs text-slate-500">No active tasks for your station!</div>`;
+        return;
+      }
+
+      filtered.forEach(t => {
+        const isDone = t.status === "Completed";
+        const isDelayed = t.status === "Delayed";
+
+        container.innerHTML += `
+          <div class="bg-slate-900 border ${isDelayed ? 'border-rose-500 bg-rose-950/10' : 'border-slate-800'} p-4 rounded-xl space-y-3">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-bold text-slate-400">${t.id} - ${t.station}</span>
+              <span class="text-[10px] font-bold ${isDone ? 'text-emerald-400' : (isDelayed ? 'text-rose-400' : 'text-amber-400')}">${t.status}</span>
+            </div>
+            <h4 class="text-sm font-bold text-white">${t.title}</h4>
+            
+            ${isDelayed ? `<div class="text-[11px] text-rose-300 bg-rose-950/40 p-2 rounded"><b>Delay:</b> ${t.delayReason}</div>` : ''}
+
+            <div class="flex gap-2 pt-2 border-t border-slate-800">
+              <button onclick="updateTask('${t.id}', 'Completed')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2 rounded-lg font-bold">
+                <i class="fa-solid fa-check mr-1"></i> Done
+              </button>
+              <button onclick="openDelayModal('${t.id}', '${t.title}')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-lg font-bold">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i> Delay
+              </button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    async function submitNewTask() {
+      const station = document.getElementById('task-station').value;
+      const title = document.getElementById('task-title').value;
+      const assigned = document.getElementById('task-assigned').value || "Shift Operator";
+
+      if (!title) return alert("Please enter task title");
+
+      const body = { action: "createTask", station, title, priority: "High", assigned, deadline: "Today" };
+      
+      // Optimistic UI update
+      allTasks.push({ id: "TSK-" + Math.floor(1000 + Math.random() * 9000), ...body, status: "Pending" });
+      renderManagementTasks();
+      document.getElementById('task-title').value = "";
+
+      await fetch(API_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    }
+
+    async function updateTask(taskId, status, reason = "") {
+      const task = allTasks.find(t => t.id === taskId);
+      if (task) {
+        task.status = status;
+        task.delayReason = reason;
+      }
+      if (currentUser.role === 'Worker') renderWorkerTasks();
+      if (currentUser.role === 'Management') renderManagementTasks();
+
+      await fetch(API_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "updateTask", taskId, status, delayReason: reason })
+      });
+    }
+
+    function openDelayModal(id, title) {
+      activeDelayedTaskId = id;
+      document.getElementById('delay-task-title').innerText = title;
+      document.getElementById('modal-delay').classList.remove('hidden');
+    }
+    function closeDelayModal() {
+      document.getElementById('modal-delay').classList.add('hidden');
+      document.getElementById('delay-reason-input').value = "";
+    }
+    function confirmDelay() {
+      const reason = document.getElementById('delay-reason-input').value;
+      if (!reason) return alert("Please state reason for delay");
+      updateTask(activeDelayedTaskId, "Delayed", reason);
+      closeDelayModal();
+    }
+  </script>
+</body>
+</html>
