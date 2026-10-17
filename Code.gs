@@ -34,6 +34,26 @@ function doGet(e) {
     });
   }
 
+  if (action === "getAccounts") {
+    const user = findUser(ss, params.pin);
+    if (!user || !hasAccountManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Manager access is required to view accounts" });
+    }
+    const userSheet = ss.getSheetByName("Users");
+    if (!userSheet) return sendJSON({ success: false, message: "Users sheet not found" });
+    const rows = userSheet.getLastRow() > 1
+      ? userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 4).getValues()
+      : [];
+    return sendJSON({
+      accounts: rows.map((row, index) => ({
+        accountId: index + 2,
+        name: String(row[1]),
+        role: String(row[2]),
+        station: String(row[3])
+      }))
+    });
+  }
+
   if (action === "getSubmissions") {
     const user = findUser(ss, params.pin);
     if (!user || !hasManagementAccess(user.role)) {
@@ -82,6 +102,86 @@ function doPost(e) {
   }
   const user = findUser(ss, body.pin);
   if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+
+  if (body.action === "createAccount") {
+    if (!hasAccountManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Manager access is required to create accounts" });
+    }
+    const name = String(body.name || "").trim();
+    const role = String(body.role || "").trim();
+    const station = String(body.station || "").trim();
+    const newPin = String(body.newPin || "").trim();
+    if (!name || name.length > 80) {
+      return sendJSON({ success: false, message: "A name of at most 80 characters is required" });
+    }
+    if (!station || station.length > 80) {
+      return sendJSON({ success: false, message: "A station of at most 80 characters is required" });
+    }
+    if (!/^\d{4}$/.test(newPin)) {
+      return sendJSON({ success: false, message: "PIN must contain exactly four digits" });
+    }
+    if (!isSupportedAccountRole(role)) {
+      return sendJSON({ success: false, message: "Unsupported account role" });
+    }
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Account changes are busy. Please try again." });
+    }
+    try {
+      const userSheet = ss.getSheetByName("Users");
+      if (!userSheet) return sendJSON({ success: false, message: "Users sheet not found" });
+      const existingPins = userSheet.getLastRow() > 1
+        ? userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 1).getValues().flat()
+        : [];
+      if (existingPins.some(existingPin => String(existingPin).trim() === newPin)) {
+        return sendJSON({ success: false, message: "That PIN is already assigned to an account" });
+      }
+      const newRow = userSheet.getLastRow() + 1;
+      userSheet.getRange(newRow, 1).setNumberFormat("@");
+      userSheet.getRange(newRow, 1, 1, 4).setValues([[newPin, name, role, station]]);
+      return sendJSON({ success: true });
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  if (body.action === "updateAccountRole") {
+    if (!hasAccountManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Manager access is required to update account roles" });
+    }
+    const accountId = Number(body.accountId);
+    const expectedName = String(body.expectedName || "");
+    const expectedStation = String(body.expectedStation || "");
+    const expectedRole = String(body.expectedRole || "");
+    const role = String(body.role || "").trim();
+    if (!Number.isInteger(accountId) || accountId < 2 || !expectedName || !isSupportedAccountRole(role)) {
+      return sendJSON({ success: false, message: "Invalid account or role" });
+    }
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Account changes are busy. Please try again." });
+    }
+    try {
+      const userSheet = ss.getSheetByName("Users");
+      if (!userSheet || accountId > userSheet.getLastRow()) {
+        return sendJSON({ success: false, message: "Account not found; refresh the account list and try again" });
+      }
+      const target = userSheet.getRange(accountId, 1, 1, 4).getValues()[0];
+      if (String(target[1]) !== expectedName || String(target[2]) !== expectedRole || String(target[3]) !== expectedStation) {
+        return sendJSON({ success: false, message: "Account changed; refresh the account list and try again" });
+      }
+      const callerPin = String(body.pin).trim();
+      if (String(target[0]).trim() === callerPin) {
+        return sendJSON({ success: false, message: "You cannot change your own account role" });
+      }
+      userSheet.getRange(accountId, 3).setValue(role);
+      return sendJSON({ success: true });
+    } finally {
+      lock.releaseLock();
+    }
+  }
 
   if (body.action === "createTask") {
     if (!hasManagementAccess(user.role)) {
@@ -222,7 +322,17 @@ function doPost(e) {
 
 function hasManagementAccess(role) {
   const normalized = String(role || "").trim().toLowerCase();
-  return normalized === "management" || normalized === "manager" || normalized === "executive";
+  return normalized === "admin" || normalized === "management" || normalized === "manager" || normalized === "executive";
+}
+
+function hasAccountManagementAccess(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  return normalized === "admin" || normalized === "management" || normalized === "manager";
+}
+
+function isSupportedAccountRole(role) {
+  return ["admin", "management", "manager", "executive", "worker", "contractor"]
+    .includes(String(role || "").trim().toLowerCase());
 }
 
 function isContractor(role) {

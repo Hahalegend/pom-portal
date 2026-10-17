@@ -21,14 +21,14 @@
         <p class="text-xs text-slate-400 mt-1">Enter your assigned 4-digit PIN</p>
       </div>
 
-      <div class="space-y-3">
-        <input type="password" id="login-pin" maxlength="4" placeholder="••••" 
+      <form id="login-form" class="space-y-3">
+        <input type="password" id="login-pin" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="current-password" autofocus
           class="w-full text-center tracking-widest text-2xl py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-amber-500">
-        <button onclick="handleLogin()" id="btn-login" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">
+        <button type="submit" id="btn-login" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">
           Sign In
         </button>
         <p id="login-error" class="text-xs text-rose-500 hidden font-medium">Invalid PIN. Please check with supervisor.</p>
-      </div>
+      </form>
 
       <div class="text-[11px] text-slate-500 border-t border-slate-800 pt-3">
         Sign in with your assigned PIN. Contact your supervisor if you need access.
@@ -55,12 +55,20 @@
   <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
     <nav class="flex gap-2 overflow-x-auto border-b border-slate-800 pb-3">
       <button onclick="showManagementTab('overview')" class="management-tab rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Overview</button>
+      <button id="manager-accounts-tab" onclick="showManagementTab('accounts')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Accounts</button>
       <button onclick="showManagementTab('builder')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">UI Builder</button>
       <button onclick="showManagementTab('reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Reports</button>
       <button onclick="showManagementTab('work-reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Work Reports</button>
     </nav>
 
     <section id="management-overview" class="space-y-6">
+    <button id="manager-account-shortcut" onclick="showManagementTab('accounts')" class="flex w-full items-center justify-between gap-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-left hover:bg-amber-500/15">
+      <span>
+        <span class="block text-sm font-bold text-white">Manage accounts</span>
+        <span class="mt-1 block text-xs text-slate-400">Add a user or change their access level.</span>
+      </span>
+      <span class="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950"><i class="fa-solid fa-user-plus mr-1"></i> Add account</span>
+    </button>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
@@ -172,6 +180,33 @@
       </div>
       <div id="manager-work-reports" class="space-y-3"></div>
     </section>
+
+    <section id="management-accounts" class="hidden space-y-4">
+      <div>
+        <h2 class="text-sm font-bold text-white">Account access</h2>
+        <p class="mt-1 text-xs text-slate-400">Create accounts and change access levels. PINs are not shown in the account list.</p>
+      </div>
+      <form id="account-create-form" class="grid grid-cols-1 gap-2 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <input id="account-name" required maxlength="80" placeholder="Full name" aria-label="Full name" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        <input id="account-pin" required type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="4-digit PIN" aria-label="4-digit PIN" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        <input id="account-station" required maxlength="80" placeholder="Station" aria-label="Station" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        <select id="account-role" aria-label="Account role" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          <option value="Worker">Worker</option>
+          <option value="Contractor">Contractor</option>
+          <option value="Manager">Manager</option>
+          <option value="Management">Management</option>
+          <option value="Executive">Executive</option>
+          <option value="Admin">Admin</option>
+        </select>
+        <button id="account-create-button" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Add account</button>
+      </form>
+      <p id="account-status" role="status" aria-live="polite" class="hidden rounded-lg border p-3 text-xs"></p>
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Existing accounts</h3>
+        <button onclick="loadAccounts()" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+      </div>
+      <div id="manager-accounts-list" class="space-y-2"></div>
+    </section>
   </main>
 
   <!-- 3. WORKER PAGE -->
@@ -259,6 +294,7 @@
     let allTasks = [];
     let customForms = [];
     let customSubmissions = [];
+    let managedAccounts = [];
     let workReports = [];
     const workReportPhotos = { before: [], after: [] };
     let activeDelayedTaskId = null;
@@ -319,6 +355,9 @@
       const badge = document.getElementById('role-badge');
       badge.innerText = currentUser.role;
       const managerAccess = hasManagementAccess(currentUser.role);
+      const accountManagementAccess = hasAccountManagementAccess(currentUser.role);
+      document.getElementById("manager-accounts-tab").classList.toggle("hidden", !accountManagementAccess);
+      document.getElementById("manager-account-shortcut").classList.toggle("hidden", !accountManagementAccess);
       badge.className = managerAccess
         ? "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-amber-500 text-slate-950"
         : "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-sky-500 text-slate-950";
@@ -354,12 +393,16 @@
       document.getElementById('app-bar').classList.add('hidden');
       document.getElementById('api-error').classList.add('hidden');
       document.getElementById('login-pin').value = "";
+      document.getElementById('login-pin').focus();
+      document.getElementById("account-create-form").reset();
+      document.getElementById("account-status").classList.add("hidden");
       Object.values(workReportPhotos).forEach(photos => photos.forEach(photo => URL.revokeObjectURL(photo.preview)));
       workReportPhotos.before = [];
       workReportPhotos.after = [];
       workReports = [];
       customForms = [];
       customSubmissions = [];
+      managedAccounts = [];
       allTasks = [];
       document.getElementById("work-report-form").reset();
       document.getElementById("work-report-before-preview").replaceChildren();
@@ -401,7 +444,12 @@
 
     function hasManagementAccess(role) {
       const normalizedRole = String(role || "").trim().toLowerCase();
-      return normalizedRole === "management" || normalizedRole === "manager" || normalizedRole === "executive";
+      return normalizedRole === "admin" || normalizedRole === "management" || normalizedRole === "manager" || normalizedRole === "executive";
+    }
+
+    function hasAccountManagementAccess(role) {
+      const normalizedRole = String(role || "").trim().toLowerCase();
+      return normalizedRole === "admin" || normalizedRole === "management" || normalizedRole === "manager";
     }
 
     function isContractor(role) {
@@ -409,17 +457,128 @@
     }
 
     function showManagementTab(tab) {
-      const tabs = ["overview", "builder", "reports", "work-reports"];
+      if (tab === "accounts" && !hasAccountManagementAccess(currentUser && currentUser.role)) return;
+      const tabs = ["overview", "accounts", "builder", "reports", "work-reports"];
       tabs.forEach(name => {
         document.getElementById(`management-${name}`).classList.toggle("hidden", name !== tab);
       });
       document.querySelectorAll(".management-tab").forEach((button, index) => {
         const selected = tabs[index] === tab;
-        button.className = `management-tab rounded-lg px-3 py-2 text-xs font-bold ${selected ? "bg-slate-800 text-white" : "bg-slate-900 text-slate-400"}`;
+        const hidden = button.id === "manager-accounts-tab" && !hasAccountManagementAccess(currentUser && currentUser.role);
+        button.className = `management-tab rounded-lg px-3 py-2 text-xs font-bold ${selected ? "bg-slate-800 text-white" : "bg-slate-900 text-slate-400"}${hidden ? " hidden" : ""}`;
       });
       if (tab === "reports") loadSubmissions();
       if (tab === "builder") renderManagerForms();
       if (tab === "work-reports") loadWorkReports();
+      if (tab === "accounts") loadAccounts();
+    }
+
+    async function loadAccounts() {
+      const container = document.getElementById("manager-accounts-list");
+      const requestingPin = currentUser && currentUser.pin;
+      if (!requestingPin) return;
+      container.innerHTML = '<p class="text-xs text-slate-500">Loading accounts...</p>';
+      try {
+        const data = await getAPI("getAccounts", { pin: requestingPin });
+        if (!currentUser || currentUser.pin !== requestingPin) return;
+        if (!Array.isArray(data.accounts)) {
+          throw new Error("The deployed Apps Script does not support account management. Deploy the latest Code.gs, then try again.");
+        }
+        managedAccounts = data.accounts;
+        renderAccounts();
+      } catch (error) {
+        if (!currentUser || currentUser.pin !== requestingPin) return;
+        container.innerHTML = `<p class="rounded-lg border border-rose-800 bg-rose-950/50 p-3 text-xs text-rose-300">Could not load accounts: ${escapeHTML(error.message)}</p>`;
+      }
+    }
+
+    function renderAccounts() {
+      const container = document.getElementById("manager-accounts-list");
+      const availableRoles = ["Worker", "Contractor", "Manager", "Management", "Executive", "Admin"];
+      if (!managedAccounts.length) {
+        container.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No accounts found.</p>';
+        return;
+      }
+      container.innerHTML = managedAccounts.map(account => {
+        const normalizedRole = String(account.role || "").trim().toLowerCase();
+        const roleOptions = availableRoles.map(role =>
+          `<option value="${role}" ${role.toLowerCase() === normalizedRole ? "selected" : ""}>${role}</option>`
+        ).join("");
+        const unknownRole = availableRoles.some(role => role.toLowerCase() === normalizedRole)
+          ? ""
+          : `<option value="${escapeHTML(account.role)}" selected>${escapeHTML(account.role || "Unknown role")}</option>`;
+        return `<article class="grid grid-cols-1 items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:grid-cols-[1fr_180px_auto]">
+          <div><p class="text-sm font-bold text-white">${escapeHTML(account.name)}</p><p class="mt-1 text-[11px] text-slate-400">${escapeHTML(account.station)}</p></div>
+          <select data-account-role="${escapeHTML(account.accountId)}" aria-label="Role for ${escapeHTML(account.name)}" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">${unknownRole}${roleOptions}</select>
+          <button data-account-save="${escapeHTML(account.accountId)}" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">Save role</button>
+        </article>`;
+      }).join("");
+    }
+
+    function setAccountStatus(message, isError = false) {
+      const status = document.getElementById("account-status");
+      status.textContent = message;
+      status.className = `rounded-lg border p-3 text-xs ${isError ? "border-rose-800 bg-rose-950/50 text-rose-300" : "border-emerald-800 bg-emerald-950/40 text-emerald-300"}`;
+    }
+
+    async function createAccount(event) {
+      event.preventDefault();
+      const button = document.getElementById("account-create-button");
+      const account = {
+        name: document.getElementById("account-name").value.trim(),
+        newPin: document.getElementById("account-pin").value.trim(),
+        station: document.getElementById("account-station").value.trim(),
+        role: document.getElementById("account-role").value
+      };
+      button.disabled = true;
+      button.textContent = "Adding...";
+      try {
+        await postData({ action: "createAccount", pin: currentUser.pin, ...account });
+        const verification = await getAPI("login", { pin: account.newPin });
+        if (!verification.success || verification.user.name !== account.name
+          || verification.user.station !== account.station || verification.user.role !== account.role) {
+          throw new Error("The server did not confirm the new account");
+        }
+        document.getElementById("account-create-form").reset();
+        setAccountStatus(`Account created for ${account.name}. Give them their PIN securely.`);
+        await loadAccounts();
+      } catch (error) {
+        setAccountStatus(`Could not create account: ${error.message}`, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Add account";
+      }
+    }
+
+    async function updateAccountRole(accountId, button) {
+      const account = managedAccounts.find(item => String(item.accountId) === String(accountId));
+      const roleSelect = Array.from(document.querySelectorAll("select[data-account-role]"))
+        .find(select => select.dataset.accountRole === String(accountId));
+      if (!account || !roleSelect || roleSelect.value === account.role) return;
+      button.disabled = true;
+      button.textContent = "Saving...";
+      try {
+        await postData({
+          action: "updateAccountRole",
+          pin: currentUser.pin,
+          accountId: account.accountId,
+          expectedName: account.name,
+          expectedStation: account.station,
+          expectedRole: account.role,
+          role: roleSelect.value
+        });
+        await loadAccounts();
+        const updated = managedAccounts.find(item => String(item.accountId) === String(accountId));
+        if (!updated || updated.role !== roleSelect.value) {
+          throw new Error("The server did not confirm the role change");
+        }
+        setAccountStatus(`${account.name}'s access was updated to ${updated.role}.`);
+      } catch (error) {
+        setAccountStatus(`Could not update account access: ${error.message}`, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save role";
+      }
     }
 
     function addBuilderField(label = "", type = "text", required = false) {
@@ -992,8 +1151,17 @@
       }
     }
 
+    document.getElementById("login-form").addEventListener("submit", event => {
+      event.preventDefault();
+      handleLogin();
+    });
     document.getElementById("builder-add-field").addEventListener("click", () => addBuilderField());
     document.getElementById("form-builder").addEventListener("submit", createCustomForm);
+    document.getElementById("account-create-form").addEventListener("submit", createAccount);
+    document.getElementById("manager-accounts-list").addEventListener("click", event => {
+      const button = event.target.closest("button[data-account-save]");
+      if (button) updateAccountRole(button.dataset.accountSave, button);
+    });
     document.getElementById("work-report-form").addEventListener("submit", submitWorkReport);
     document.getElementById("work-report-before").addEventListener("change", event => {
       addWorkReportPhotos("before", event.target.files);
@@ -1036,6 +1204,7 @@
       if (button.dataset.taskAction === "delay") openDelayModal(task.id, task.title);
     });
     addBuilderField();
+    document.getElementById("login-pin").focus();
   </script>
 </body>
 </html>
