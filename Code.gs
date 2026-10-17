@@ -325,55 +325,77 @@ function doPost(e) {
     if (body.status === "Completed" && completionComment.length > 3000) {
       return sendJSON({ success: false, message: "Completion comment must be at most 3000 characters" });
     }
-    const data = taskSheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(body.taskId)) {
-        const userCanUpdate = hasManagementAccess(user.role)
-          || String(data[i][1]) === String(user.station)
-          || String(data[i][4]).includes(String(user.name));
-        if (!userCanUpdate) {
-          return sendJSON({ success: false, message: "You are not assigned to this task" });
-        }
-        let newPhoto = null;
-        let completion = parseTaskCompletion(data[i][10]);
-        const previousCompletionPhoto = completion.photo;
-        if (body.status === "Completed") {
-          if (body.photo) {
-            try {
-              newPhoto = saveTaskPhoto(body.photo, String(body.taskId) + "-completion");
-            } catch (error) {
-              return sendJSON({ success: false, message: error.message });
-            }
-          }
-          completion = {
-            completedAt: new Date().toISOString(),
-            comment: completionComment,
-            photo: newPhoto || completion.photo || null
-          };
-        }
-        const nextDelayDate = body.status === "Delayed" ? delayDate : data[i][11] || "";
-        const nextDelayReason = body.status === "Delayed" ? delayReason : data[i][12] || "";
-        try {
-          taskSheet.getRange(i + 1, 7, 1, 7).setValues([[
-            body.status,
-            body.status === "Delayed" ? delayReason : "",
-            new Date(),
-            data[i][9] || "",
-            JSON.stringify(completion),
-            nextDelayDate,
-            nextDelayReason
-          ]]);
-        } catch (error) {
-          if (newPhoto) trashTaskPhoto(newPhoto);
-          return sendJSON({ success: false, message: "Could not update the task: " + error.message });
-        }
-        if (newPhoto && previousCompletionPhoto && previousCompletionPhoto.id) {
-          trashTaskPhoto(previousCompletionPhoto);
-        }
-        return sendJSON({ success: true });
-      }
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Task updates are busy. Please try again." });
     }
-    return sendJSON({ success: false, message: "Task not found" });
+    try {
+      const data = taskSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(body.taskId)) {
+          const userCanUpdate = hasManagementAccess(user.role)
+            || String(data[i][1]) === String(user.station)
+            || String(data[i][4]).includes(String(user.name));
+          if (!userCanUpdate) {
+            return sendJSON({ success: false, message: "You are not assigned to this task" });
+          }
+          let newPhoto = null;
+          let completion = parseTaskCompletion(data[i][10]);
+          const previousCompletionPhoto = completion.photo;
+          if (body.status === "Completed") {
+            if (body.photo) {
+              try {
+                newPhoto = saveTaskPhoto(body.photo, String(body.taskId) + "-completion");
+              } catch (error) {
+                return sendJSON({ success: false, message: error.message });
+              }
+            }
+            completion = {
+              completedAt: new Date().toISOString(),
+              comment: completionComment,
+              photo: newPhoto || completion.photo || null
+            };
+          }
+          const nextDelayDate = body.status === "Delayed" ? delayDate : data[i][11] || "";
+          const nextDelayReason = body.status === "Delayed" ? delayReason : data[i][12] || "";
+          try {
+            taskSheet.getRange(i + 1, 7, 1, 7).setValues([[
+              body.status,
+              body.status === "Delayed" ? delayReason : "",
+              new Date(),
+              data[i][9] || "",
+              JSON.stringify(completion),
+              nextDelayDate,
+              nextDelayReason
+            ]]);
+            SpreadsheetApp.flush();
+            const savedRow = taskSheet.getRange(i + 1, 7, 1, 7).getValues()[0];
+            const savedCompletion = body.status === "Completed" ? parseTaskCompletion(savedRow[4]) : null;
+            const updateSaved = String(savedRow[0]) === body.status
+              && (body.status !== "Delayed" || (
+                normalizeTaskDate(savedRow[5]) === delayDate
+                && String(savedRow[6]) === delayReason
+              ))
+              && (body.status !== "Completed" || (
+                savedCompletion.comment === completionComment
+                && (!body.photo || (savedCompletion.photo && savedCompletion.photo.id === newPhoto.id))
+              ));
+            if (!updateSaved) {
+              return sendJSON({ success: false, message: "The task update could not be verified in the spreadsheet" });
+            }
+          } catch (error) {
+            return sendJSON({ success: false, message: "Could not update the task: " + error.message });
+          }
+          if (newPhoto && previousCompletionPhoto && previousCompletionPhoto.id) {
+            trashTaskPhoto(previousCompletionPhoto);
+          }
+          return sendJSON({ success: true });
+        }
+      }
+      return sendJSON({ success: false, message: "Task not found" });
+    } finally {
+      lock.releaseLock();
+    }
   }
 
   if (body.action === "deleteTask") {
