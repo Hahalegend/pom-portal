@@ -1290,16 +1290,24 @@
           photo: details.photo || null
         });
         if (!currentUser || currentUser.pin !== submittingPin) return false;
-        const savedData = await getAPI("getData", { pin: submittingPin });
-        const savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
-        const updateConfirmed = savedTask && savedTask.status === status
-          && (status !== "Delayed" || (savedTask.delayDate === details.delayDate && savedTask.delayReason === details.delayReason))
-          && (status !== "Completed" || (
-            savedTask.completionComment === details.comment
-            && (!details.photo || savedTask.hasCompletionPhoto)
-          ));
+        let savedData;
+        let savedTask;
+        let updateConfirmed = false;
+        const retryDelays = [250, 500, 1000];
+        for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+          savedData = await getAPI("getData", { pin: submittingPin });
+          savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
+          updateConfirmed = Boolean(savedTask && savedTask.status === status
+            && (status !== "Delayed" || (savedTask.delayDate === details.delayDate && savedTask.delayReason === details.delayReason))
+            && (status !== "Completed" || (
+              savedTask.completionComment === details.comment
+              && (!details.photo || savedTask.hasCompletionPhoto)
+            )));
+          if (updateConfirmed || attempt === retryDelays.length) break;
+          await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
+        }
         if (!updateConfirmed) {
-          throw new Error("The server did not confirm the task update");
+          throw new Error("The task update was not visible after several checks. It may still have been saved; refresh the task list before retrying. If this continues, ask an administrator to deploy the latest Code.gs.");
         }
         allTasks = savedData.tasks;
         if (hasManagementAccess(currentUser.role)) renderManagementTasks();
