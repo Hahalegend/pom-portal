@@ -54,33 +54,31 @@
   <!-- 2. MANAGEMENT PAGE -->
   <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
     <nav class="flex gap-2 overflow-x-auto border-b border-slate-800 pb-3">
-      <button onclick="showManagementTab('overview')" class="management-tab rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Overview</button>
-      <button onclick="showManagementTab('oer')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">OER Trends</button>
-      <button id="manager-accounts-tab" onclick="showManagementTab('accounts')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Accounts</button>
-      <button onclick="showManagementTab('builder')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">UI Builder</button>
-      <button onclick="showManagementTab('reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Reports</button>
-      <button onclick="showManagementTab('work-reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Work Reports</button>
+      <button data-management-tab="overview" onclick="showManagementTab('overview')" class="management-tab rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Overview</button>
+      <button id="manager-accounts-tab" data-management-tab="accounts" onclick="showManagementTab('accounts')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Accounts</button>
+      <button data-management-tab="builder" onclick="showManagementTab('builder')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">UI Builder</button>
+      <button data-management-tab="reports" onclick="showManagementTab('reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Reports</button>
+      <button data-management-tab="work-reports" onclick="showManagementTab('work-reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Work Reports</button>
     </nav>
 
     <section id="management-overview" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-        <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
-        <div class="text-xl font-black text-white mt-1"><span id="m-throughput">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
-      </div>
-      <button type="button" onclick="showManagementTab('oer')" aria-label="Open OER trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500">
+      <button type="button" onclick="openMetricSection('ffb')" aria-label="Open FFB Process trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-white/50 focus:outline-none focus:ring-2 focus:ring-white">
+        <span class="text-[10px] text-slate-400 uppercase font-bold">FFB Process</span>
+        <div class="text-xl font-black text-white mt-1"><span id="m-ffb">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
+      </button>
+      <button type="button" onclick="openMetricSection('oer')" aria-label="Open OER trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500">
         <span class="text-[10px] text-slate-400 uppercase font-bold">OER Rate</span>
         <div class="text-xl font-black text-amber-400 mt-1"><span id="m-oer">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
-        <span class="mt-2 block text-[10px] text-slate-500">View OER trends <i class="fa-solid fa-arrow-right ml-1"></i></span>
       </button>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <button type="button" onclick="openMetricSection('ker')" aria-label="Open KER trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-sky-500/60 focus:outline-none focus:ring-2 focus:ring-sky-500">
         <span class="text-[10px] text-slate-400 uppercase font-bold">KER Rate</span>
         <div class="text-xl font-black text-sky-400 mt-1"><span id="m-ker">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      </button>
+      <button type="button" onclick="openMetricSection('boiler')" aria-label="Open Boiler Pressure section" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500">
         <span class="text-[10px] text-slate-400 uppercase font-bold">Boiler Pressure</span>
         <div class="text-xl font-black text-emerald-400 mt-1"><span id="m-boiler">--</span> <span class="text-xs font-normal text-slate-400">Bar</span></div>
-      </div>
+      </button>
     </div>
 
     <!-- Management Task Dispatcher -->
@@ -131,26 +129,26 @@
     </div>
     </section>
 
-    <section id="management-oer" class="hidden space-y-4">
+    <section id="management-metric" class="hidden space-y-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-sm font-bold text-white">OER performance trends</h2>
-          <p class="mt-1 text-xs text-slate-400">Record daily OER values and compare daily, monthly, or yearly averages.</p>
+          <h2 id="metric-section-title" class="text-sm font-bold text-white">Performance trends</h2>
+          <p id="metric-section-description" class="mt-1 text-xs text-slate-400"></p>
         </div>
-        <button type="button" onclick="loadOerHistory()" class="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+        <button type="button" onclick="loadMetricHistory()" class="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
       </div>
 
-      <form id="oer-entry-form" class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <form id="metric-entry-form" class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <label class="space-y-1 text-xs text-slate-400">
           <span>Record date</span>
-          <input id="oer-entry-date" type="date" required class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          <input id="metric-entry-date" type="date" required class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
         </label>
         <label class="space-y-1 text-xs text-slate-400">
-          <span>OER (%)</span>
-          <input id="oer-entry-value" type="number" required min="0" max="100" step="0.01" inputmode="decimal" placeholder="e.g. 19.8" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          <span id="metric-entry-label">Value</span>
+          <input id="metric-entry-value" type="number" required min="0" step="0.01" inputmode="decimal" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
         </label>
-        <button id="oer-entry-submit" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Save daily OER</button>
-        <p id="oer-entry-status" role="status" aria-live="polite" class="hidden text-xs sm:col-span-3"></p>
+        <button id="metric-entry-submit" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Save daily value</button>
+        <p id="metric-entry-status" role="status" aria-live="polite" class="hidden text-xs sm:col-span-3"></p>
       </form>
 
       <div class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -159,30 +157,30 @@
           <p class="mt-1 text-xs text-slate-500">Select one, two, or all three. Monthly and yearly values are averages of the daily records.</p>
         </div>
         <div class="flex flex-wrap gap-4 text-xs text-slate-300">
-          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="day" checked class="accent-amber-500"> Daily</label>
-          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="month" class="accent-amber-500"> Monthly average</label>
-          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="year" class="accent-amber-500"> Yearly average</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="metric-period" value="day" checked class="accent-amber-500"> Daily</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="metric-period" value="month" class="accent-amber-500"> Monthly average</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="metric-period" value="year" class="accent-amber-500"> Yearly average</label>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="space-y-1 text-xs text-slate-400">
             <span>From date (optional)</span>
-            <input id="oer-filter-from" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+            <input id="metric-filter-from" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
           </label>
           <label class="space-y-1 text-xs text-slate-400">
             <span>To date (optional)</span>
-            <input id="oer-filter-to" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+            <input id="metric-filter-to" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
           </label>
         </div>
       </div>
-      <div id="oer-trend-status" role="status" class="hidden rounded-lg border border-rose-900 bg-rose-950/40 p-3 text-xs text-rose-300"></div>
-      <div id="oer-chart-list" class="grid grid-cols-1 gap-4 xl:grid-cols-2"></div>
+      <div id="metric-trend-status" role="status" class="hidden rounded-lg border border-rose-900 bg-rose-950/40 p-3 text-xs text-rose-300"></div>
+      <div id="metric-chart-list" class="grid grid-cols-1 gap-4 xl:grid-cols-2"></div>
 
       <div class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
         <div class="flex items-center justify-between">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Daily OER history</h3>
-          <span id="oer-history-count" class="text-xs text-slate-500"></span>
+          <h3 id="metric-history-title" class="text-xs font-bold uppercase tracking-wider text-slate-300">Daily history</h3>
+          <span id="metric-history-count" class="text-xs text-slate-500"></span>
         </div>
-        <div id="oer-history-table" class="overflow-x-auto"></div>
+        <div id="metric-history-table" class="overflow-x-auto"></div>
       </div>
     </section>
 
@@ -393,7 +391,14 @@
     let customSubmissions = [];
     let managedAccounts = [];
     let workReports = [];
-    let oerHistory = [];
+    const KPI_METRICS = {
+      ffb: { label: "FFB Process", title: "FFB Process performance", unit: "MT", max: 1000000000, valueId: "m-ffb", color: "#e2e8f0", increment: 1 },
+      oer: { label: "OER", title: "OER performance trends", unit: "%", max: 100, valueId: "m-oer", color: "#fbbf24", increment: 0.01 },
+      ker: { label: "KER", title: "KER performance trends", unit: "%", max: 100, valueId: "m-ker", color: "#38bdf8", increment: 0.01 },
+      boiler: { label: "Boiler Pressure", title: "Boiler pressure trends", unit: "Bar", max: 1000000000, valueId: "m-boiler", color: "#34d399", increment: 0.01 }
+    };
+    let activeMetric = "oer";
+    let metricHistory = [];
     let taskPhoto = null;
     let completionPhoto = null;
     const workReportPhotos = { before: [], after: [] };
@@ -520,7 +525,7 @@
       customForms = [];
       customSubmissions = [];
       managedAccounts = [];
-      oerHistory = [];
+      metricHistory = [];
       allTasks = [];
       document.getElementById("work-report-form").reset();
       document.getElementById("work-report-before-preview").replaceChildren();
@@ -539,7 +544,7 @@
         customForms = Array.isArray(data.forms) ? data.forms : [];
 
         if (data.kpi && data.kpi.length > 0) {
-          document.getElementById('m-throughput').innerText = data.kpi[1] || '850';
+          document.getElementById('m-ffb').innerText = data.kpi[1] || '850';
           document.getElementById('m-oer').innerText = data.kpi[2] || '19.8';
           document.getElementById('m-ker').innerText = data.kpi[3] || '5.4';
           document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
@@ -576,12 +581,12 @@
 
     function showManagementTab(tab) {
       if (tab === "accounts" && !hasAccountManagementAccess(currentUser && currentUser.role)) return;
-      const tabs = ["overview", "oer", "accounts", "builder", "reports", "work-reports"];
-      tabs.forEach(name => {
+      const sections = ["overview", "metric", "accounts", "builder", "reports", "work-reports"];
+      sections.forEach(name => {
         document.getElementById(`management-${name}`).classList.toggle("hidden", name !== tab);
       });
-      document.querySelectorAll(".management-tab").forEach((button, index) => {
-        const selected = tabs[index] === tab;
+      document.querySelectorAll(".management-tab").forEach(button => {
+        const selected = button.dataset.managementTab === tab;
         const hidden = button.id === "manager-accounts-tab" && !hasAccountManagementAccess(currentUser && currentUser.role);
         button.className = `management-tab rounded-lg px-3 py-2 text-xs font-bold ${selected ? "bg-slate-800 text-white" : "bg-slate-900 text-slate-400"}${hidden ? " hidden" : ""}`;
       });
@@ -589,47 +594,71 @@
       if (tab === "builder") renderManagerForms();
       if (tab === "work-reports") loadWorkReports();
       if (tab === "accounts") loadAccounts();
-      if (tab === "oer") loadOerHistory();
+      if (tab === "metric") loadMetricHistory();
     }
 
-    async function loadOerHistory() {
+    function openMetricSection(metric) {
+      if (!hasManagementAccess(currentUser && currentUser.role) || !KPI_METRICS[metric]) return;
+      activeMetric = metric;
+      const config = KPI_METRICS[metric];
+      document.getElementById("metric-section-title").textContent = config.title;
+      document.getElementById("metric-section-description").textContent = `Record daily ${config.label} values and compare daily, monthly, or yearly averages.`;
+      document.getElementById("metric-entry-label").textContent = `${config.label} (${config.unit})`;
+      document.getElementById("metric-entry-value").max = String(config.max);
+      document.getElementById("metric-entry-value").step = String(config.increment);
+      document.getElementById("metric-entry-value").placeholder = config.unit === "%" ? "e.g. 19.8" : `Enter value in ${config.unit}`;
+      document.getElementById("metric-entry-submit").textContent = `Save daily ${config.label}`;
+      document.getElementById("metric-history-title").textContent = `Daily ${config.label} history`;
+      document.getElementById("metric-entry-status").classList.add("hidden");
+      document.getElementById("metric-trend-status").classList.add("hidden");
+      document.getElementById("metric-filter-from").value = "";
+      document.getElementById("metric-filter-to").value = "";
+      document.querySelectorAll('input[name="metric-period"]').forEach(input => {
+        input.checked = input.value === "day";
+      });
+      showManagementTab("metric");
+    }
+
+    async function loadMetricHistory() {
       const pin = currentUser && currentUser.pin;
       if (!pin || !hasManagementAccess(currentUser.role)) return;
-      const chartList = document.getElementById("oer-chart-list");
-      document.getElementById("oer-trend-status").classList.add("hidden");
-      chartList.innerHTML = '<p class="text-xs text-slate-500">Loading OER history...</p>';
+      const metric = activeMetric;
+      const chartList = document.getElementById("metric-chart-list");
+      document.getElementById("metric-trend-status").classList.add("hidden");
+      chartList.innerHTML = `<p class="text-xs text-slate-500">Loading ${escapeHTML(KPI_METRICS[metric].label)} history...</p>`;
       try {
-        const data = await getAPI("getOerHistory", { pin });
-        if (!currentUser || currentUser.pin !== pin) return;
-        if (!Array.isArray(data.records)) throw new Error("The server returned invalid OER history");
-        oerHistory = data.records;
-        const todayRecord = oerHistory.find(record => record.date === localDateString());
-        if (todayRecord) document.getElementById("m-oer").textContent = todayRecord.oer;
-        renderOerHistory();
+        const data = await getAPI("getMetricHistory", { pin, metric });
+        if (!currentUser || currentUser.pin !== pin || activeMetric !== metric) return;
+        if (!Array.isArray(data.records)) throw new Error("The server returned invalid KPI history");
+        metricHistory = data.records;
+        const todayRecord = metricHistory.find(record => record.date === localDateString());
+        if (todayRecord) document.getElementById(KPI_METRICS[metric].valueId).textContent = todayRecord.value;
+        renderMetricHistory();
       } catch (error) {
         chartList.replaceChildren();
-        const status = document.getElementById("oer-trend-status");
-        status.textContent = `Could not load OER history: ${error.message}`;
+        const status = document.getElementById("metric-trend-status");
+        status.textContent = `Could not load ${KPI_METRICS[metric].label} history: ${error.message}`;
         status.classList.remove("hidden");
       }
     }
 
-    function renderOerHistory() {
-      renderOerCharts();
-      const historyTable = document.getElementById("oer-history-table");
-      const records = [...oerHistory].sort((left, right) => right.date.localeCompare(left.date));
-      document.getElementById("oer-history-count").textContent = `${records.length} day${records.length === 1 ? "" : "s"}`;
+    function renderMetricHistory() {
+      renderMetricCharts();
+      const config = KPI_METRICS[activeMetric];
+      const historyTable = document.getElementById("metric-history-table");
+      const records = [...metricHistory].sort((left, right) => right.date.localeCompare(left.date));
+      document.getElementById("metric-history-count").textContent = `${records.length} day${records.length === 1 ? "" : "s"}`;
       if (!records.length) {
-        historyTable.innerHTML = '<p class="text-xs text-slate-500">No OER values recorded yet. Add a daily value above to start tracking trends.</p>';
+        historyTable.innerHTML = `<p class="text-xs text-slate-500">No ${escapeHTML(config.label)} values recorded yet. Add a daily value above to start tracking trends.</p>`;
         return;
       }
       historyTable.innerHTML = `
         <table class="w-full min-w-[360px] text-left text-xs">
-          <thead class="text-slate-500"><tr><th class="pb-2 pr-4 font-semibold">Date</th><th class="pb-2 pr-4 font-semibold">OER</th><th class="pb-2 font-semibold">Updated by</th></tr></thead>
+          <thead class="text-slate-500"><tr><th class="pb-2 pr-4 font-semibold">Date</th><th class="pb-2 pr-4 font-semibold">${escapeHTML(config.label)}</th><th class="pb-2 font-semibold">Updated by</th></tr></thead>
           <tbody>${records.slice(0, 20).map(record => `
             <tr class="border-t border-slate-800 text-slate-300">
               <td class="py-2 pr-4">${escapeHTML(record.date)}</td>
-              <td class="py-2 pr-4 font-bold text-amber-300">${Number(record.oer).toFixed(2)}%</td>
+              <td class="py-2 pr-4 font-bold" style="color:${config.color}">${Number(record.value).toFixed(2)} ${escapeHTML(config.unit)}</td>
               <td class="py-2">${escapeHTML(record.updatedBy || "—")}</td>
             </tr>`).join("")}
           </tbody>
@@ -637,14 +666,14 @@
       `;
     }
 
-    function getOerChartPoints(records, period) {
+    function getMetricChartPoints(records, period) {
       const buckets = new Map();
       records.forEach(record => {
         const key = period === "day" ? record.date
           : period === "month" ? record.date.slice(0, 7)
             : record.date.slice(0, 4);
         const bucket = buckets.get(key) || { total: 0, count: 0 };
-        bucket.total += Number(record.oer);
+        bucket.total += Number(record.value);
         bucket.count++;
         buckets.set(key, bucket);
       });
@@ -656,8 +685,13 @@
         }));
     }
 
-    function renderOerChart(period, points) {
-      const titles = { day: "Daily OER", month: "Monthly average OER", year: "Yearly average OER" };
+    function renderMetricChart(period, points) {
+      const config = KPI_METRICS[activeMetric];
+      const titles = {
+        day: `Daily ${config.label}`,
+        month: `Monthly average ${config.label}`,
+        year: `Yearly average ${config.label}`
+      };
       const width = 720;
       const height = 280;
       const left = 52;
@@ -667,13 +701,14 @@
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const maxValue = Math.max(...points.map(point => point.value), 0);
-      const maxY = Math.min(100, Math.max(10, Math.ceil(maxValue / 10) * 10));
+      const step = config.unit === "%" ? 10 : Math.pow(10, Math.floor(Math.log10(maxValue || 1)));
+      const maxY = Math.max(step, Math.ceil(maxValue / step) * step);
       const x = index => left + (points.length === 1 ? plotWidth / 2 : index * plotWidth / (points.length - 1));
       const y = value => top + plotHeight - value / maxY * plotHeight;
       const grid = Array.from({ length: 5 }, (_, index) => {
         const value = maxY * index / 4;
         const position = y(value);
-        return `<line x1="${left}" y1="${position}" x2="${width - right}" y2="${position}" stroke="#334155" stroke-width="1"/><text x="${left - 8}" y="${position + 4}" fill="#94a3b8" font-size="11" text-anchor="end">${value.toFixed(0)}%</text>`;
+        return `<line x1="${left}" y1="${position}" x2="${width - right}" y2="${position}" stroke="#334155" stroke-width="1"/><text x="${left - 8}" y="${position + 4}" fill="#94a3b8" font-size="11" text-anchor="end">${value.toFixed(config.unit === "%" ? 0 : 1)} ${escapeHTML(config.unit)}</text>`;
       }).join("");
       const path = points.map((point, index) => `${index ? "L" : "M"} ${x(index)} ${y(point.value)}`).join(" ");
       const labelIndexes = new Set(Array.from({ length: Math.min(points.length, 6) }, (_, index) =>
@@ -689,14 +724,16 @@
         return `<text x="${x(index)}" y="${height - 14}" fill="#94a3b8" font-size="11" text-anchor="middle">${escapeHTML(label)}</text>`;
       }).join("");
       const dots = points.map((point, index) =>
-        `<circle cx="${x(index)}" cy="${y(point.value)}" r="3.5" fill="#fbbf24"><title>${escapeHTML(point.label)}: ${point.value.toFixed(2)}%</title></circle>`
+        `<circle cx="${x(index)}" cy="${y(point.value)}" r="3.5" fill="${config.color}"><title>${escapeHTML(point.label)}: ${point.value.toFixed(2)} ${escapeHTML(config.unit)}</title></circle>`
       ).join("");
       const average = points.reduce((sum, point) => sum + point.value, 0) / points.length;
-      let evaluation = `Average OER: ${average.toFixed(2)}%.`;
+      let evaluation = `Average ${config.label}: ${average.toFixed(2)} ${config.unit}.`;
       if (points.length > 1) {
         const change = points[points.length - 1].value - points[0].value;
-        const direction = change > 0.005 ? "increased" : change < -0.005 ? "decreased" : "was steady";
-        evaluation += ` Trend ${direction}${direction === "was steady" ? "" : ` by ${Math.abs(change).toFixed(2)} percentage points`} from ${points[0].label} to ${points[points.length - 1].label}.`;
+        const epsilon = config.unit === "%" ? 0.005 : 0.01;
+        const direction = change > epsilon ? "increased" : change < -epsilon ? "decreased" : "was steady";
+        const changeUnit = config.unit === "%" ? "percentage points" : config.unit;
+        evaluation += ` Trend ${direction}${direction === "was steady" ? "" : ` by ${Math.abs(change).toFixed(2)} ${changeUnit}`} from ${points[0].label} to ${points[points.length - 1].label}.`;
       } else {
         evaluation += " Add more periods to evaluate the trend.";
       }
@@ -710,31 +747,31 @@
           <div class="overflow-x-auto">
             <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${titles[period]} trend graph" class="h-64 w-full min-w-[520px]">
               ${grid}
-              <path d="${path}" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="${path}" fill="none" stroke="${config.color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
               ${dots}${labels}
             </svg>
           </div>
         </article>`;
     }
 
-    function renderOerCharts() {
-      const chartList = document.getElementById("oer-chart-list");
-      const status = document.getElementById("oer-trend-status");
+    function renderMetricCharts() {
+      const chartList = document.getElementById("metric-chart-list");
+      const status = document.getElementById("metric-trend-status");
       status.classList.add("hidden");
-      const from = document.getElementById("oer-filter-from").value;
-      const to = document.getElementById("oer-filter-to").value;
+      const from = document.getElementById("metric-filter-from").value;
+      const to = document.getElementById("metric-filter-to").value;
       if (from && to && from > to) {
         status.textContent = "The start date must be before the end date.";
         status.classList.remove("hidden");
         chartList.replaceChildren();
         return;
       }
-      const selected = [...document.querySelectorAll('input[name="oer-period"]:checked')].map(input => input.value);
+      const selected = [...document.querySelectorAll('input[name="metric-period"]:checked')].map(input => input.value);
       if (!selected.length) {
         chartList.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">Select at least one graph period.</p>';
         return;
       }
-      const filtered = oerHistory.filter(record =>
+      const filtered = metricHistory.filter(record =>
         (!from || record.date >= from) && (!to || record.date <= to)
       );
       if (!filtered.length) {
@@ -742,34 +779,34 @@
         return;
       }
       chartList.innerHTML = selected.map(period => {
-        const points = getOerChartPoints(filtered, period);
-        return renderOerChart(period, points);
+        const points = getMetricChartPoints(filtered, period);
+        return renderMetricChart(period, points);
       }).join("");
     }
 
-    async function saveOerEntry(event) {
+    async function saveMetricEntry(event) {
       event.preventDefault();
-      const button = document.getElementById("oer-entry-submit");
-      const date = document.getElementById("oer-entry-date").value;
-      const oer = document.getElementById("oer-entry-value").value;
-      const status = document.getElementById("oer-entry-status");
+      const button = document.getElementById("metric-entry-submit");
+      const date = document.getElementById("metric-entry-date").value;
+      const value = document.getElementById("metric-entry-value").value;
+      const status = document.getElementById("metric-entry-status");
       button.disabled = true;
       button.textContent = "Saving...";
       try {
-        const result = await postData({ action: "saveOer", pin: currentUser.pin, date, oer });
+        const result = await postData({ action: "saveMetric", pin: currentUser.pin, metric: activeMetric, date, value });
         status.textContent = result.replaced
-          ? `Updated the OER value for ${date}.`
-          : `Saved OER for ${date}.`;
+          ? `Updated the ${KPI_METRICS[activeMetric].label} value for ${date}.`
+          : `Saved ${KPI_METRICS[activeMetric].label} for ${date}.`;
         status.className = "text-xs text-emerald-400 sm:col-span-3";
-        document.getElementById("oer-entry-value").value = "";
-        await loadOerHistory();
+        document.getElementById("metric-entry-value").value = "";
+        await loadMetricHistory();
       } catch (error) {
-        status.textContent = `Could not save OER: ${error.message}`;
+        status.textContent = `Could not save ${KPI_METRICS[activeMetric].label}: ${error.message}`;
         status.className = "text-xs text-rose-400 sm:col-span-3";
       } finally {
         status.classList.remove("hidden");
         button.disabled = false;
-        button.textContent = "Save daily OER";
+        button.textContent = `Save daily ${KPI_METRICS[activeMetric].label}`;
       }
     }
 
@@ -1773,10 +1810,10 @@
     document.getElementById("builder-add-field").addEventListener("click", () => addBuilderField());
     document.getElementById("form-builder").addEventListener("submit", createCustomForm);
     document.getElementById("account-create-form").addEventListener("submit", createAccount);
-    document.getElementById("oer-entry-form").addEventListener("submit", saveOerEntry);
-    document.querySelectorAll('input[name="oer-period"]').forEach(input => input.addEventListener("change", renderOerCharts));
-    document.getElementById("oer-filter-from").addEventListener("change", renderOerCharts);
-    document.getElementById("oer-filter-to").addEventListener("change", renderOerCharts);
+    document.getElementById("metric-entry-form").addEventListener("submit", saveMetricEntry);
+    document.querySelectorAll('input[name="metric-period"]').forEach(input => input.addEventListener("change", renderMetricCharts));
+    document.getElementById("metric-filter-from").addEventListener("change", renderMetricCharts);
+    document.getElementById("metric-filter-to").addEventListener("change", renderMetricCharts);
     document.getElementById("manager-accounts-list").addEventListener("click", event => {
       const button = event.target.closest("button[data-account-save]");
       if (button) updateAccountRole(button.dataset.accountSave, button);
@@ -1825,7 +1862,7 @@
     addBuilderField();
     document.getElementById("task-deadline").value = localDateString();
     document.getElementById("task-deadline").min = localDateString();
-    document.getElementById("oer-entry-date").value = localDateString();
+    document.getElementById("metric-entry-date").value = localDateString();
     document.getElementById("login-pin").focus();
   </script>
 </body>

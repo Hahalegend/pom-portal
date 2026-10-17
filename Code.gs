@@ -46,12 +46,14 @@ function doGet(e) {
     return sendJSON({ stations: readStations(ss) });
   }
 
-  if (action === "getOerHistory") {
+  if (action === "getMetricHistory" || action === "getOerHistory") {
     const user = findUser(ss, params.pin);
     if (!user || !hasManagementAccess(user.role)) {
-      return sendJSON({ success: false, message: "Management access is required to view OER history" });
+      return sendJSON({ success: false, message: "Management access is required to view KPI history" });
     }
-    return sendJSON({ records: readOerHistory(getOerSheet(ss)) });
+    const metric = getKpiMetric(params.metric || "oer");
+    if (!metric) return sendJSON({ success: false, message: "Unsupported KPI metric" });
+    return sendJSON({ records: readKpiHistory(getKpiHistorySheet(ss, metric)) });
   }
 
   if (action === "getData") {
@@ -152,22 +154,24 @@ function doPost(e) {
   const user = findUser(ss, body.pin);
   if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
 
-  if (body.action === "saveOer") {
+  if (body.action === "saveMetric" || body.action === "saveOer") {
     if (!hasManagementAccess(user.role)) {
-      return sendJSON({ success: false, message: "Management access is required to save OER values" });
+      return sendJSON({ success: false, message: "Management access is required to save KPI values" });
     }
+    const metric = getKpiMetric(body.metric || "oer");
+    if (!metric) return sendJSON({ success: false, message: "Unsupported KPI metric" });
     const date = String(body.date || "").trim();
-    const oerValue = String(body.oer == null ? "" : body.oer).trim();
-    const oer = Number(oerValue);
-    if (!isValidTaskDate(date) || !oerValue || !Number.isFinite(oer) || oer < 0 || oer > 100) {
-      return sendJSON({ success: false, message: "Enter a valid date and an OER value from 0 to 100" });
+    const valueText = String(body.value == null ? body.oer == null ? "" : body.oer : body.value).trim();
+    const value = Number(valueText);
+    if (!isValidTaskDate(date) || !valueText || !Number.isFinite(value) || value < 0 || value > metric.max) {
+      return sendJSON({ success: false, message: "Enter a valid date and KPI value" });
     }
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) {
-      return sendJSON({ success: false, message: "OER history is busy. Please try again." });
+      return sendJSON({ success: false, message: "KPI history is busy. Please try again." });
     }
     try {
-      const sheet = getOerSheet(ss);
+      const sheet = getKpiHistorySheet(ss, metric);
       const rows = sheet.getLastRow() > 1
         ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat()
         : [];
@@ -176,10 +180,10 @@ function doPost(e) {
       sheet.getRange(rowNumber, 1).setNumberFormat("@");
       sheet.getRange(rowNumber, 2).setNumberFormat("0.00");
       sheet.getRange(rowNumber, 1, 1, 4).setValues([[
-        date, oer, new Date(), user.name
+        date, value, new Date(), user.name
       ]]);
       SpreadsheetApp.flush();
-      return sendJSON({ success: true, date: date, oer: oer, replaced: rowIndex >= 0 });
+      return sendJSON({ success: true, date: date, metric: metric.key, value: value, replaced: rowIndex >= 0 });
     } finally {
       lock.releaseLock();
     }
@@ -634,25 +638,35 @@ function getStationSheet(ss) {
   return sheet;
 }
 
-function getOerSheet(ss) {
-  let sheet = ss.getSheetByName("OER_History");
-  if (!sheet) sheet = ss.insertSheet("OER_History");
+function getKpiMetric(key) {
+  const metrics = {
+    oer: { key: "oer", label: "OER", sheetName: "OER_History", unit: "%", max: 100 },
+    ker: { key: "ker", label: "KER", sheetName: "KER_History", unit: "%", max: 100 },
+    ffb: { key: "ffb", label: "FFB Process", sheetName: "FFB_History", unit: "MT", max: 1000000000 },
+    boiler: { key: "boiler", label: "Boiler Pressure", sheetName: "Boiler_History", unit: "Bar", max: 1000000000 }
+  };
+  return metrics[String(key || "").trim().toLowerCase()] || null;
+}
+
+function getKpiHistorySheet(ss, metric) {
+  let sheet = ss.getSheetByName(metric.sheetName);
+  if (!sheet) sheet = ss.insertSheet(metric.sheetName);
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Date", "OER (%)", "Updated At", "Updated By"]);
+    sheet.appendRow(["Date", metric.label + (metric.unit === "%" ? " (%)" : " (" + metric.unit + ")"), "Updated At", "Updated By"]);
   }
   return sheet;
 }
 
-function readOerHistory(sheet) {
+function readKpiHistory(sheet) {
   if (sheet.getLastRow() <= 1) return [];
   return sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
     .map(row => ({
       date: normalizeTaskDate(row[0]),
-      oer: row[1] === "" || row[1] == null ? NaN : Number(row[1]),
+      value: row[1] === "" || row[1] == null ? NaN : Number(row[1]),
       updatedAt: row[2] instanceof Date ? row[2].toISOString() : String(row[2] || ""),
       updatedBy: String(row[3] || "")
     }))
-    .filter(record => record.date && Number.isFinite(record.oer) && record.oer >= 0 && record.oer <= 100)
+    .filter(record => record.date && Number.isFinite(record.value) && record.value >= 0)
     .sort((left, right) => left.date.localeCompare(right.date));
 }
 
