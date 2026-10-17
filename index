@@ -10,7 +10,7 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
 
-  <!-- ================= 1. LOGIN SCREEN ================= -->
+  <!-- 1. LOGIN SCREEN -->
   <div id="screen-login" class="flex-1 flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full space-y-6 text-center">
       <div class="inline-block p-4 bg-amber-500/10 text-amber-500 rounded-full text-3xl">
@@ -36,7 +36,7 @@
     </div>
   </div>
 
-  <!-- ================= TOP APP BAR (Hidden on Login) ================= -->
+  <!-- TOP APP BAR -->
   <header id="app-bar" class="bg-slate-900 border-b border-slate-800 px-4 py-3 hidden justify-between items-center sticky top-0 z-30">
     <div class="flex items-center gap-2">
       <span id="role-badge" class="text-[10px] font-black px-2 py-0.5 rounded uppercase"></span>
@@ -50,9 +50,8 @@
     </button>
   </header>
 
-  <!-- ================= 2. MANAGEMENT PAGE ================= -->
+  <!-- 2. MANAGEMENT PAGE -->
   <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
-    <!-- Real-time KPI Overview -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
@@ -86,7 +85,7 @@
           <option value="Nut & Kernel">Nut & Kernel</option>
           <option value="Boiler & Power">Boiler & Power</option>
         </select>
-        <input type="text" id="task-title" placeholder="Job Title (e.g. Overhaul screw)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white col-span-2">
+        <input type="text" id="task-title" placeholder="Job Title" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white col-span-2">
         <input type="text" id="task-assigned" placeholder="Assignee (e.g. Shahrul)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
         <button onclick="submitNewTask()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs">
           Dispatch Job
@@ -101,7 +100,7 @@
     </div>
   </main>
 
-  <!-- ================= 3. WORKER PAGE ================= -->
+  <!-- 3. WORKER PAGE -->
   <main id="screen-worker" class="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4 hidden">
     <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
       <div>
@@ -112,12 +111,10 @@
         <i class="fa-solid fa-arrows-rotate"></i>
       </button>
     </div>
-
-    <!-- Operator Task Cards -->
     <div id="w-tasks-container" class="space-y-3"></div>
   </main>
 
-  <!-- ================= DELAY MODAL ================= -->
+  <!-- DELAY MODAL -->
   <div id="modal-delay" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-sm w-full p-5 space-y-4">
       <h3 class="text-sm font-bold text-rose-400">Report Incomplete / Delay</h3>
@@ -130,11 +127,8 @@
     </div>
   </div>
 
-  <!-- ================= SCRIPT & LOGIC ================= -->
   <script>
-    // -------------------------------------------------------------
-    // REPLACE THIS URL WITH YOUR GOOGLE APPS SCRIPT WEB APP URL:
-    // -------------------------------------------------------------
+    // Live Google Apps Script API Endpoint
     const API_URL = "https://script.google.com/macros/s/AKfycbxKKJFKR1OavDRVGCmKDYV_F2P34vF59wgf5uxMO2r1C-n1JfgWGDX6htJ0yta2lrRO2w/exec";
 
     let currentUser = null;
@@ -161,7 +155,6 @@
           err.classList.remove('hidden');
         }
       } catch (e) {
-        // Offline demo fallback if API URL is not updated yet
         if (pin === "1111") {
           currentUser = { name: "Manager Azmi", role: "Management", station: "All" };
           setupSession();
@@ -221,7 +214,6 @@
           document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
         }
       } catch (e) {
-        // Fallback demo tasks
         if (allTasks.length === 0) {
           allTasks = [
             { id: "TSK-101", station: "Pressing", title: "Adjust Cone Pressure on Press 2", priority: "High", assigned: "Shahrul (Press)", deadline: "17:00", status: "Delayed", delayReason: "Hydraulic oil leak" },
@@ -260,8 +252,7 @@
       const container = document.getElementById('w-tasks-container');
       container.innerHTML = "";
       
-      // Filter tasks assigned to worker's station or assigned name
-      const filtered = allTasks.filter(t => t.station === currentUser.station || t.assigned.includes(currentUser.name));
+      const filtered = allTasks.filter(t => t.station === currentUser.station || (t.assigned && t.assigned.includes(currentUser.name)));
 
       if (filtered.length === 0) {
         container.innerHTML = `<div class="text-center py-10 text-xs text-slate-500">No active tasks for your station!</div>`;
@@ -303,8 +294,6 @@
       if (!title) return alert("Please enter task title");
 
       const body = { action: "createTask", station, title, priority: "High", assigned, deadline: "Today" };
-      
-      // Optimistic UI update
       allTasks.push({ id: "TSK-" + Math.floor(1000 + Math.random() * 9000), ...body, status: "Pending" });
       renderManagementTasks();
       document.getElementById('task-title').value = "";
