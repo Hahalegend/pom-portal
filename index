@@ -132,6 +132,9 @@
 
   <!-- ================= SCRIPT & LOGIC ================= -->
   <script>
+    // -------------------------------------------------------------
+    // REPLACE THIS URL WITH YOUR GOOGLE APPS SCRIPT WEB APP URL:
+    // -------------------------------------------------------------
     const API_URL = "https://script.google.com/macros/s/AKfycbxKKJFKR1OavDRVGCmKDYV_F2P34vF59wgf5uxMO2r1C-n1JfgWGDX6htJ0yta2lrRO2w/exec";
 
     let currentUser = null;
@@ -158,6 +161,7 @@
           err.classList.remove('hidden');
         }
       } catch (e) {
+        // Offline demo fallback if API URL is not updated yet
         if (pin === "1111") {
           currentUser = { name: "Manager Azmi", role: "Management", station: "All" };
           setupSession();
@@ -217,6 +221,7 @@
           document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
         }
       } catch (e) {
+        // Fallback demo tasks
         if (allTasks.length === 0) {
           allTasks = [
             { id: "TSK-101", station: "Pressing", title: "Adjust Cone Pressure on Press 2", priority: "High", assigned: "Shahrul (Press)", deadline: "17:00", status: "Delayed", delayReason: "Hydraulic oil leak" },
@@ -255,6 +260,7 @@
       const container = document.getElementById('w-tasks-container');
       container.innerHTML = "";
       
+      // Filter tasks assigned to worker's station or assigned name
       const filtered = allTasks.filter(t => t.station === currentUser.station || t.assigned.includes(currentUser.name));
 
       if (filtered.length === 0) {
@@ -298,6 +304,7 @@
 
       const body = { action: "createTask", station, title, priority: "High", assigned, deadline: "Today" };
       
+      // Optimistic UI update
       allTasks.push({ id: "TSK-" + Math.floor(1000 + Math.random() * 9000), ...body, status: "Pending" });
       renderManagementTasks();
       document.getElementById('task-title').value = "";
