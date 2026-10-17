@@ -62,13 +62,6 @@
     </nav>
 
     <section id="management-overview" class="space-y-6">
-    <button id="manager-account-shortcut" onclick="showManagementTab('accounts')" class="flex w-full items-center justify-between gap-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-left hover:bg-amber-500/15">
-      <span>
-        <span class="block text-sm font-bold text-white">Manage accounts</span>
-        <span class="mt-1 block text-xs text-slate-400">Add a user or change their access level.</span>
-      </span>
-      <span class="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950"><i class="fa-solid fa-user-plus mr-1"></i> Add account</span>
-    </button>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
@@ -94,9 +87,24 @@
         <i class="fa-solid fa-plus text-amber-500"></i> Dispatch Station Job
       </h2>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
-        <select id="task-station" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
-          <option value="">Loading stations...</option>
-        </select>
+        <div class="space-y-2 md:col-span-5">
+          <label for="task-station" class="block space-y-1 text-xs text-slate-400">
+            <span>Station</span>
+            <select id="task-station" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+              <option value="">Loading stations...</option>
+            </select>
+          </label>
+          <div class="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 sm:flex-row">
+            <input id="new-station-name" type="text" maxlength="80" placeholder="New station name (e.g. Water Treatment)" aria-label="New station name" class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+            <button id="add-station-button" type="button" class="rounded bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">
+              <i class="fa-solid fa-plus mr-1"></i> Add station
+            </button>
+            <button id="remove-station-button" type="button" class="rounded border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900">
+              <i class="fa-solid fa-trash mr-1"></i> Remove selected station
+            </button>
+          </div>
+          <p id="station-list-status" role="status" class="hidden text-xs"></p>
+        </div>
         <input type="text" id="task-title" placeholder="Job Title" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white col-span-2">
         <input type="text" id="task-assigned" placeholder="Assignee (e.g. Shahrul)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
         <label class="space-y-1 text-xs text-slate-400">
@@ -111,16 +119,6 @@
           <input id="task-photo" type="file" accept="image/*" class="block w-full rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
         </label>
         <div id="task-photo-preview" class="hidden md:col-span-5"></div>
-        <div class="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 md:col-span-5 sm:flex-row">
-          <input id="new-station-name" type="text" maxlength="80" placeholder="Add a station (e.g. Water Treatment)" aria-label="New station name" class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
-          <button id="add-station-button" type="button" class="rounded bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">
-            <i class="fa-solid fa-plus mr-1"></i> Add station
-          </button>
-          <button id="remove-station-button" type="button" class="rounded border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900">
-            <i class="fa-solid fa-trash mr-1"></i> Remove selected station
-          </button>
-        </div>
-        <p id="station-list-status" role="status" class="hidden text-xs md:col-span-5"></p>
       </div>
     </div>
 
@@ -402,7 +400,6 @@
       const managerAccess = hasManagementAccess(currentUser.role);
       const accountManagementAccess = hasAccountManagementAccess(currentUser.role);
       document.getElementById("manager-accounts-tab").classList.toggle("hidden", !accountManagementAccess);
-      document.getElementById("manager-account-shortcut").classList.toggle("hidden", !accountManagementAccess);
       badge.className = managerAccess
         ? "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-amber-500 text-slate-950"
         : "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-sky-500 text-slate-950";
