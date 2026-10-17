@@ -11,6 +11,41 @@ function doGet(e) {
       : sendJSON({ success: false, message: "Invalid PIN" });
   }
 
+  if (action === "getTaskPhoto") {
+    const user = findUser(ss, params.pin);
+    if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+    const taskSheet = ss.getSheetByName("Station_Tasks");
+    if (!taskSheet) return sendJSON({ success: false, message: "Station_Tasks sheet not found" });
+    const rows = taskSheet.getLastRow() > 1 ? taskSheet.getDataRange().getValues().slice(1) : [];
+    const task = rows.find(row => String(row[0]) === String(params.taskId || ""));
+    if (!task) return sendJSON({ success: false, message: "Task not found" });
+    if (!canViewTask(user, task)) {
+      return sendJSON({ success: false, message: "You are not assigned to this task" });
+    }
+    const photoType = params.photoType === "completion" ? "completion" : "task";
+    const completion = parseTaskCompletion(task[10]);
+    const photo = photoType === "completion"
+      ? completion.photo
+      : JSON.parse(String(task[9] || "null"));
+    if (!photo) return sendJSON({ success: false, message: "Task picture not found" });
+    const file = DriveApp.getFileById(photo.id);
+    return sendJSON({
+      photo: {
+        name: photo.name,
+        mimeType: photo.mimeType,
+        data: Utilities.base64Encode(file.getBlob().getBytes())
+      }
+    });
+  }
+
+  if (action === "getStations") {
+    const user = findUser(ss, params.pin);
+    if (!user || !hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required to view stations" });
+    }
+    return sendJSON({ stations: readStations(ss) });
+  }
+
   if (action === "getData") {
     const user = findUser(ss, params.pin);
     if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
@@ -24,7 +59,13 @@ function doGet(e) {
     const kpiData = kpiSheet.getLastRow() > 1 ? kpiSheet.getDataRange().getValues() : [[]];
     const tasks = taskData.slice(1).map(row => ({
       id: row[0], station: row[1], title: row[2], priority: row[3],
-      assigned: row[4], deadline: row[5], status: row[6], delayReason: row[7]
+      assigned: row[4], deadline: normalizeTaskDate(row[5]), status: row[6],
+      delayReason: String(row[12] || row[7] || ""),
+      delayDate: normalizeTaskDate(row[11]),
+      hasPhoto: Boolean(row[9]),
+      hasCompletionPhoto: Boolean(parseTaskCompletion(row[10]).photo),
+      completionComment: parseTaskCompletion(row[10]).comment || "",
+      completedAt: parseTaskCompletion(row[10]).completedAt || ""
     }));
 
     return sendJSON({
@@ -102,6 +143,44 @@ function doPost(e) {
   }
   const user = findUser(ss, body.pin);
   if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+
+  if (body.action === "addStation" || body.action === "removeStation") {
+    if (!hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required to change stations" });
+    }
+    const station = String(body.station || "").trim();
+    if (!station || station.length > 80) {
+      return sendJSON({ success: false, message: "A station name of at most 80 characters is required" });
+    }
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Station list is busy. Please try again." });
+    }
+    try {
+      const sheet = getStationSheet(ss);
+      const rows = sheet.getLastRow() > 1
+        ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat()
+        : [];
+      const stationIndex = rows.findIndex(value => String(value).trim().toLowerCase() === station.toLowerCase());
+      if (body.action === "addStation") {
+        if (stationIndex >= 0) {
+          return sendJSON({ success: true, station: String(rows[stationIndex]), alreadyExists: true });
+        }
+        sheet.appendRow([station]);
+        return sendJSON({ success: true, station: station });
+      }
+      if (stationIndex < 0) {
+        return sendJSON({ success: false, message: "Station not found in the saved list" });
+      }
+      if (rows.length <= 1) {
+        return sendJSON({ success: false, message: "At least one station must remain in the list" });
+      }
+      sheet.deleteRow(stationIndex + 2);
+      return sendJSON({ success: true, station: String(rows[stationIndex]) });
+    } finally {
+      lock.releaseLock();
+    }
+  }
 
   if (body.action === "createAccount") {
     if (!hasAccountManagementAccess(user.role)) {
@@ -189,14 +268,37 @@ function doPost(e) {
     }
     const taskSheet = ss.getSheetByName("Station_Tasks");
     if (!taskSheet) return sendJSON({ success: false, message: "Station_Tasks sheet not found" });
-    if (!body.title || !body.station) {
+    const title = String(body.title || "").trim();
+    const station = String(body.station || "").trim();
+    const deadline = String(body.deadline || "").trim();
+    if (!title || !station) {
       return sendJSON({ success: false, message: "A task title and station are required" });
     }
+    if (!isValidTaskDate(deadline)) {
+      return sendJSON({ success: false, message: "A valid completion deadline is required" });
+    }
+    if (!readStations(ss).some(savedStation => savedStation.toLowerCase() === station.toLowerCase())) {
+      return sendJSON({ success: false, message: "Select a station from the saved station list" });
+    }
     const taskId = String(body.taskId || Utilities.getUuid());
-    taskSheet.appendRow([
-      taskId, body.station, body.title, body.priority || "High",
-      body.assigned || "Shift Operator", body.deadline || "Today", "Pending", "", new Date()
-    ]);
+    let photo = null;
+    if (body.photo) {
+      try {
+        photo = saveTaskPhoto(body.photo, taskId);
+      } catch (error) {
+        return sendJSON({ success: false, message: error.message });
+      }
+    }
+    try {
+      taskSheet.appendRow([
+        taskId, station, title, body.priority || "High",
+        body.assigned || "Shift Operator", deadline, "Pending", "", new Date(),
+        photo ? JSON.stringify(photo) : ""
+      ]);
+    } catch (error) {
+      if (photo) trashTaskPhoto(photo);
+      return sendJSON({ success: false, message: "Could not save the task: " + error.message });
+    }
     return sendJSON({ success: true, taskId: taskId });
   }
 
@@ -209,8 +311,19 @@ function doPost(e) {
     if (body.status !== "Completed" && body.status !== "Delayed") {
       return sendJSON({ success: false, message: "Unsupported task status" });
     }
-    if (body.status === "Delayed" && !String(body.delayReason || "").trim()) {
-      return sendJSON({ success: false, message: "A delay reason is required" });
+    const delayReason = String(body.delayReason || "").trim();
+    const delayDate = String(body.delayDate || "").trim();
+    const completionComment = String(body.comment || "").trim();
+    if (body.status === "Delayed" && (
+      !delayReason
+      || delayReason.length > 3000
+      || !isValidTaskDate(delayDate)
+      || delayDate < Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")
+    )) {
+      return sendJSON({ success: false, message: "A revised date and justification of at most 3000 characters are required" });
+    }
+    if (body.status === "Completed" && completionComment.length > 3000) {
+      return sendJSON({ success: false, message: "Completion comment must be at most 3000 characters" });
     }
     const data = taskSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
@@ -221,9 +334,42 @@ function doPost(e) {
         if (!userCanUpdate) {
           return sendJSON({ success: false, message: "You are not assigned to this task" });
         }
-        taskSheet.getRange(i + 1, 7).setValue(body.status);
-        taskSheet.getRange(i + 1, 8).setValue(body.delayReason || "");
-        taskSheet.getRange(i + 1, 9).setValue(new Date());
+        let newPhoto = null;
+        let completion = parseTaskCompletion(data[i][10]);
+        const previousCompletionPhoto = completion.photo;
+        if (body.status === "Completed") {
+          if (body.photo) {
+            try {
+              newPhoto = saveTaskPhoto(body.photo, String(body.taskId) + "-completion");
+            } catch (error) {
+              return sendJSON({ success: false, message: error.message });
+            }
+          }
+          completion = {
+            completedAt: new Date().toISOString(),
+            comment: completionComment,
+            photo: newPhoto || completion.photo || null
+          };
+        }
+        const nextDelayDate = body.status === "Delayed" ? delayDate : data[i][11] || "";
+        const nextDelayReason = body.status === "Delayed" ? delayReason : data[i][12] || "";
+        try {
+          taskSheet.getRange(i + 1, 7, 1, 7).setValues([[
+            body.status,
+            body.status === "Delayed" ? delayReason : "",
+            new Date(),
+            data[i][9] || "",
+            JSON.stringify(completion),
+            nextDelayDate,
+            nextDelayReason
+          ]]);
+        } catch (error) {
+          if (newPhoto) trashTaskPhoto(newPhoto);
+          return sendJSON({ success: false, message: "Could not update the task: " + error.message });
+        }
+        if (newPhoto && previousCompletionPhoto && previousCompletionPhoto.id) {
+          trashTaskPhoto(previousCompletionPhoto);
+        }
         return sendJSON({ success: true });
       }
     }
@@ -239,7 +385,11 @@ function doPost(e) {
     const data = taskSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(body.taskId)) {
+        const photo = JSON.parse(String(data[i][9] || "null"));
+        const completion = parseTaskCompletion(data[i][10]);
         taskSheet.deleteRow(i + 1);
+        if (photo) trashTaskPhoto(photo);
+        if (completion.photo) trashTaskPhoto(completion.photo);
         return sendJSON({ success: true });
       }
     }
@@ -343,6 +493,32 @@ function isWorkerRole(role) {
   return String(role || "").trim().toLowerCase() === "worker";
 }
 
+function canViewTask(user, task) {
+  return hasManagementAccess(user.role)
+    || (isWorkerRole(user.role)
+      && (String(task[1]) === String(user.station) || String(task[4]).includes(String(user.name))));
+}
+
+function isValidTaskDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+  const date = new Date(value + "T00:00:00Z");
+  return !isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function normalizeTaskDate(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  const date = String(value || "").trim();
+  return isValidTaskDate(date) ? date : "";
+}
+
+function parseTaskCompletion(value) {
+  if (!value) return {};
+  const completion = typeof value === "object" ? value : JSON.parse(String(value));
+  return completion && typeof completion === "object" ? completion : {};
+}
+
 function hashPin(pin) {
   const properties = PropertiesService.getScriptProperties();
   let secret = properties.getProperty("WORK_REPORT_PIN_HASH_SECRET");
@@ -378,6 +554,32 @@ function getFormSheet(ss) {
     sheet.appendRow(["Form ID", "Name", "Type", "Fields JSON", "Created At"]);
   }
   return sheet;
+}
+
+function getStationSheet(ss) {
+  let sheet = ss.getSheetByName("Portal_Stations");
+  if (!sheet) sheet = ss.insertSheet("Portal_Stations");
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Station"]);
+    sheet.getRange(2, 1, 6, 1).setValues([
+      ["Loading Ramp"],
+      ["Sterilizer"],
+      ["Pressing"],
+      ["Clarification"],
+      ["Nut & Kernel"],
+      ["Boiler & Power"]
+    ]);
+  }
+  return sheet;
+}
+
+function readStations(ss) {
+  const sheet = getStationSheet(ss);
+  if (sheet.getLastRow() <= 1) return [];
+  const stations = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat()
+    .map(value => String(value).trim())
+    .filter(Boolean);
+  return Array.from(new Set(stations));
 }
 
 function getSubmissionSheet(ss) {
@@ -438,6 +640,46 @@ function getWorkReportFolder() {
   const folder = DriveApp.createFolder("POM Portal Contractor Work Report Photos");
   properties.setProperty("CONTRACTOR_WORK_REPORT_FOLDER_ID", folder.getId());
   return folder;
+}
+
+function getTaskPhotoFolder() {
+  const properties = PropertiesService.getScriptProperties();
+  const savedId = properties.getProperty("STATION_TASK_PHOTO_FOLDER_ID");
+  if (savedId) return DriveApp.getFolderById(savedId);
+  const folder = DriveApp.createFolder("POM Portal Station Task Photos");
+  properties.setProperty("STATION_TASK_PHOTO_FOLDER_ID", folder.getId());
+  return folder;
+}
+
+function validateTaskPhoto(photo) {
+  if (!photo || typeof photo !== "object" || photo.mimeType !== "image/jpeg") {
+    throw new Error("Task pictures must be JPEG images");
+  }
+  const name = String(photo.name || "task-picture.jpg").slice(0, 180);
+  const data = String(photo.data || "");
+  if (!data || data.length > 7000000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+    throw new Error("A task picture is empty, too large, or invalid");
+  }
+  return { name: name, mimeType: "image/jpeg", data: data };
+}
+
+function saveTaskPhoto(candidate, taskId) {
+  const photo = validateTaskPhoto(candidate);
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(photo.data),
+    photo.mimeType,
+    taskId + ".jpg"
+  );
+  const file = getTaskPhotoFolder().createFile(blob);
+  return { id: file.getId(), name: photo.name, mimeType: photo.mimeType };
+}
+
+function trashTaskPhoto(photo) {
+  try {
+    DriveApp.getFileById(photo.id).setTrashed(true);
+  } catch (error) {
+    Logger.log("Could not remove station task photo " + photo.id + ": " + error.message);
+  }
 }
 
 function validateWorkReport(candidate) {

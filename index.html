@@ -95,18 +95,32 @@
       </h2>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
         <select id="task-station" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
-          <option value="Loading Ramp">Loading Ramp</option>
-          <option value="Sterilizer">Sterilizer</option>
-          <option value="Pressing">Pressing Station</option>
-          <option value="Clarification">Clarification</option>
-          <option value="Nut & Kernel">Nut & Kernel</option>
-          <option value="Boiler & Power">Boiler & Power</option>
+          <option value="">Loading stations...</option>
         </select>
         <input type="text" id="task-title" placeholder="Job Title" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white col-span-2">
         <input type="text" id="task-assigned" placeholder="Assignee (e.g. Shahrul)" class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
-        <button onclick="submitNewTask()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs">
+        <label class="space-y-1 text-xs text-slate-400">
+          <span>Completion deadline</span>
+          <input id="task-deadline" type="date" required class="w-full rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        </label>
+        <button id="dispatch-task-button" onclick="submitNewTask()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs">
           Dispatch Job
         </button>
+        <label class="md:col-span-5 space-y-1 text-xs text-slate-400">
+          <span>Job picture (optional)</span>
+          <input id="task-photo" type="file" accept="image/*" class="block w-full rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        </label>
+        <div id="task-photo-preview" class="hidden md:col-span-5"></div>
+        <div class="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 md:col-span-5 sm:flex-row">
+          <input id="new-station-name" type="text" maxlength="80" placeholder="Add a station (e.g. Water Treatment)" aria-label="New station name" class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          <button id="add-station-button" type="button" class="rounded bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">
+            <i class="fa-solid fa-plus mr-1"></i> Add station
+          </button>
+          <button id="remove-station-button" type="button" class="rounded border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900">
+            <i class="fa-solid fa-trash mr-1"></i> Remove selected station
+          </button>
+        </div>
+        <p id="station-list-status" role="status" class="hidden text-xs md:col-span-5"></p>
       </div>
     </div>
 
@@ -278,12 +292,40 @@
     <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-sm w-full p-5 space-y-4">
       <h3 class="text-sm font-bold text-rose-400">Report Incomplete / Delay</h3>
       <p id="delay-task-title" class="text-xs text-slate-400"></p>
-      <textarea id="delay-reason-input" rows="3" placeholder="Why could this task not be completed?" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white"></textarea>
+      <label class="block space-y-1 text-xs text-slate-400">
+        <span>Revised target date</span>
+        <input id="delay-date-input" type="date" required class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white">
+        <span id="delay-date-day" class="block text-slate-500"></span>
+      </label>
+      <label class="block space-y-1 text-xs text-slate-400">
+        <span>Justification</span>
+        <textarea id="delay-reason-input" maxlength="3000" rows="3" placeholder="Why could this task not be completed?" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white"></textarea>
+      </label>
       <div class="flex gap-2 justify-end">
         <button onclick="closeDelayModal()" class="px-3 py-1.5 text-xs text-slate-400 bg-slate-800 rounded">Cancel</button>
         <button onclick="confirmDelay()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 rounded">Submit Delay</button>
       </div>
     </div>
+  </div>
+
+  <div id="modal-complete" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
+    <form id="complete-task-form" class="bg-slate-900 border border-slate-800 rounded-xl max-w-sm w-full p-5 space-y-4">
+      <h3 class="text-sm font-bold text-emerald-400">Complete Task</h3>
+      <p id="complete-task-title" class="text-xs text-slate-400"></p>
+      <label class="block space-y-1 text-xs text-slate-400">
+        <span>Completion comment (optional)</span>
+        <textarea id="complete-comment-input" maxlength="3000" rows="3" placeholder="Add a completion note" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white"></textarea>
+      </label>
+      <label class="block space-y-1 text-xs text-slate-400">
+        <span>Completion picture (optional)</span>
+        <input id="complete-photo-input" type="file" accept="image/*" class="block w-full rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+      </label>
+      <div id="complete-photo-preview" class="hidden"></div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeCompleteModal()" class="px-3 py-1.5 text-xs text-slate-400 bg-slate-800 rounded">Cancel</button>
+        <button id="complete-task-submit" type="submit" class="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded">Mark Complete</button>
+      </div>
+    </form>
   </div>
 
   <script>
@@ -296,8 +338,11 @@
     let customSubmissions = [];
     let managedAccounts = [];
     let workReports = [];
+    let taskPhoto = null;
+    let completionPhoto = null;
     const workReportPhotos = { before: [], after: [] };
     let activeDelayedTaskId = null;
+    let activeCompletionTaskId = null;
 
     function escapeHTML(value) {
       return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -365,6 +410,7 @@
       if (managerAccess) {
         document.getElementById('screen-management').classList.remove('hidden');
         showManagementTab('overview');
+        loadStations();
       } else {
         document.getElementById('screen-worker').classList.remove('hidden');
         const contractorView = isContractor(currentUser.role);
@@ -392,8 +438,24 @@
       document.getElementById("contractor-work-reports").classList.add("hidden");
       document.getElementById('app-bar').classList.add('hidden');
       document.getElementById('api-error').classList.add('hidden');
+      document.getElementById("station-list-status").classList.add("hidden");
+      document.getElementById("task-station").replaceChildren();
       document.getElementById('login-pin').value = "";
       document.getElementById('login-pin').focus();
+      if (taskPhoto) URL.revokeObjectURL(taskPhoto.preview);
+      if (completionPhoto) URL.revokeObjectURL(completionPhoto.preview);
+      taskPhoto = null;
+      completionPhoto = null;
+      document.getElementById("task-photo").value = "";
+      document.getElementById("task-photo-preview").replaceChildren();
+      document.getElementById("task-photo-preview").classList.add("hidden");
+      document.getElementById("complete-task-form").reset();
+      document.getElementById("complete-photo-preview").replaceChildren();
+      document.getElementById("complete-photo-preview").classList.add("hidden");
+      document.getElementById("modal-complete").classList.add("hidden");
+      document.getElementById("modal-delay").classList.add("hidden");
+      activeCompletionTaskId = null;
+      activeDelayedTaskId = null;
       document.getElementById("account-create-form").reset();
       document.getElementById("account-status").classList.add("hidden");
       Object.values(workReportPhotos).forEach(photos => photos.forEach(photo => URL.revokeObjectURL(photo.preview)));
@@ -1003,6 +1065,35 @@
       });
     }
 
+    function localDateString(date = new Date()) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function formatTaskDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return "No deadline set";
+      return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, {
+        weekday: "long", year: "numeric", month: "short", day: "numeric"
+      });
+    }
+
+    function formatTaskTimestamp(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
+    }
+
+    function taskDeadlineMarkup(task) {
+      if (task.status === "Completed") {
+        return `<div class="text-[11px] font-semibold text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i>Completed · ${escapeHTML(formatTaskDate(task.deadline))}</div>`;
+      }
+      const dueDate = task.status === "Delayed" && task.delayDate ? task.delayDate : task.deadline;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dueDate || ""))) {
+        return '<div class="text-[11px] text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>No deadline set</div>';
+      }
+      const overdue = dueDate < localDateString();
+      const label = overdue ? "Overdue" : (task.status === "Delayed" ? "Revised due" : "Due");
+      return `<div class="text-[11px] font-semibold ${overdue ? "text-rose-400" : "text-amber-300"}"><i class="fa-solid ${overdue ? "fa-circle-xmark" : "fa-calendar-check"} mr-1"></i>${label} · ${escapeHTML(formatTaskDate(dueDate))}</div>`;
+    }
+
     function renderManagementTasks() {
       const container = document.getElementById('m-tasks-container');
       container.innerHTML = "";
@@ -1019,12 +1110,19 @@
               <span class="text-[10px] font-bold ${isDelayed ? 'text-rose-400' : 'text-slate-400'}">${escapeHTML(t.status)}</span>
             </div>
             <h4 class="text-xs font-bold text-white">${escapeHTML(t.title)}</h4>
+            ${taskDeadlineMarkup(t)}
+            ${t.hasPhoto ? `<img data-task-photo="${escapeHTML(t.id)}" alt="Loading task picture" class="max-h-48 w-full rounded-lg border border-slate-800 object-contain">` : ''}
+            ${t.hasCompletionPhoto ? `<img data-task-photo="${escapeHTML(t.id)}" data-task-photo-type="completion" alt="Loading completion picture" class="max-h-48 w-full rounded-lg border border-emerald-800 object-contain">` : ''}
             <div class="text-[11px] text-slate-400">Assigned: ${escapeHTML(t.assigned)}</div>
-            ${isDelayed ? `<div class="bg-rose-950/40 border border-rose-800/60 p-2 rounded text-[11px] text-rose-300"><b>Reason:</b> ${escapeHTML(t.delayReason)}</div>` : ''}
+            ${isDelayed && t.deadline ? `<div class="text-[11px] text-slate-400">Original deadline: ${escapeHTML(formatTaskDate(t.deadline))}</div>` : ''}
+            ${isDelayed ? `<div class="bg-rose-950/40 border border-rose-800/60 p-2 rounded text-[11px] text-rose-300"><b>Justification:</b> ${escapeHTML(t.delayReason)}</div>` : ''}
+            ${t.status === "Completed" && t.completedAt ? `<div class="text-[11px] text-emerald-300">Completed: ${escapeHTML(formatTaskTimestamp(t.completedAt))}</div>` : ''}
+            ${t.status === "Completed" && t.completionComment ? `<div class="rounded bg-slate-950 p-2 text-[11px] text-slate-300"><b>Completion note:</b> ${escapeHTML(t.completionComment)}</div>` : ''}
             <button data-task-delete="${escapeHTML(t.id)}" class="rounded bg-rose-950/60 px-3 py-1.5 text-[11px] font-bold text-rose-300">Delete task</button>
           </div>
         `;
       });
+      loadTaskPhotos(container);
     }
 
     function renderWorkerTasks() {
@@ -1049,89 +1147,274 @@
               <span class="text-[10px] font-bold ${isDone ? 'text-emerald-400' : (isDelayed ? 'text-rose-400' : 'text-amber-400')}">${escapeHTML(t.status)}</span>
             </div>
             <h4 class="text-sm font-bold text-white">${escapeHTML(t.title)}</h4>
+            ${taskDeadlineMarkup(t)}
+            ${t.hasPhoto ? `<img data-task-photo="${escapeHTML(t.id)}" alt="Loading task picture" class="max-h-64 w-full rounded-lg border border-slate-800 object-contain">` : ''}
+            ${t.hasCompletionPhoto ? `<img data-task-photo="${escapeHTML(t.id)}" data-task-photo-type="completion" alt="Loading completion picture" class="max-h-64 w-full rounded-lg border border-emerald-800 object-contain">` : ''}
             
-            ${isDelayed ? `<div class="text-[11px] text-rose-300 bg-rose-950/40 p-2 rounded"><b>Delay:</b> ${escapeHTML(t.delayReason)}</div>` : ''}
+            ${isDelayed ? `<div class="text-[11px] text-rose-300 bg-rose-950/40 p-2 rounded"><b>Justification:</b> ${escapeHTML(t.delayReason)}${t.delayDate ? `<br><b>Revised target:</b> ${escapeHTML(formatTaskDate(t.delayDate))}` : ''}</div>` : ''}
+            ${isDone && t.completedAt ? `<div class="text-[11px] text-emerald-300">Completed: ${escapeHTML(formatTaskTimestamp(t.completedAt))}</div>` : ''}
+            ${isDone && t.completionComment ? `<div class="rounded bg-slate-950 p-2 text-[11px] text-slate-300"><b>Completion note:</b> ${escapeHTML(t.completionComment)}</div>` : ''}
 
             <div class="flex gap-2 pt-2 border-t border-slate-800">
-              <button data-task-action="complete" data-task-id="${escapeHTML(t.id)}" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2 rounded-lg font-bold">
+              ${!isDone ? `<button data-task-action="complete" data-task-id="${escapeHTML(t.id)}" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2 rounded-lg font-bold">
                 <i class="fa-solid fa-check mr-1"></i> Done
               </button>
               <button data-task-action="delay" data-task-id="${escapeHTML(t.id)}" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-lg font-bold">
                 <i class="fa-solid fa-triangle-exclamation mr-1"></i> Delay
-              </button>
+              </button>` : '<span class="flex-1 text-center text-xs font-bold text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i>Completed</span>'}
             </div>
           </div>
         `;
       });
+      loadTaskPhotos(container);
+    }
+
+    function loadTaskPhotos(container) {
+      container.querySelectorAll("img[data-task-photo]").forEach(async image => {
+        const pin = currentUser && currentUser.pin;
+        try {
+          const data = await getAPI("getTaskPhoto", {
+            pin,
+            taskId: image.dataset.taskPhoto,
+            photoType: image.dataset.taskPhotoType || "task"
+          });
+          if (!data.photo) throw new Error("The server returned no task picture");
+          if (image.isConnected && currentUser && currentUser.pin === pin) {
+            image.alt = data.photo.name || "Task picture";
+            image.src = `data:${data.photo.mimeType};base64,${data.photo.data}`;
+          }
+        } catch (error) {
+          if (image.isConnected) image.alt = "Task picture could not be loaded";
+          console.error(`Could not load picture for task ${image.dataset.taskPhoto}: ${error.message}`);
+        }
+      });
+    }
+
+    function selectTaskPhoto(file) {
+      if (taskPhoto) URL.revokeObjectURL(taskPhoto.preview);
+      taskPhoto = null;
+      const preview = document.getElementById("task-photo-preview");
+      preview.replaceChildren();
+      preview.classList.add("hidden");
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        document.getElementById("task-photo").value = "";
+        alert("Please choose an image file.");
+        return;
+      }
+      if (file.size > 20000000) {
+        document.getElementById("task-photo").value = "";
+        alert("Please choose an image smaller than 20 MB.");
+        return;
+      }
+      taskPhoto = { name: file.name, file, preview: URL.createObjectURL(file) };
+      const image = document.createElement("img");
+      image.src = taskPhoto.preview;
+      image.alt = file.name;
+      image.className = "max-h-40 rounded-lg border border-slate-800 object-contain";
+      preview.appendChild(image);
+      preview.classList.remove("hidden");
     }
 
     async function submitNewTask() {
       const station = document.getElementById('task-station').value;
       const title = document.getElementById('task-title').value.trim();
       const assigned = document.getElementById('task-assigned').value.trim() || "Shift Operator";
+      const deadline = document.getElementById("task-deadline").value;
 
       if (!title) return alert("Please enter task title");
+      if (!station) return alert("Please select a station");
+      if (!deadline) return alert("Please choose a completion deadline");
 
-      const taskId = "TSK-" + crypto.randomUUID();
-      const body = { action: "createTask", pin: currentUser.pin, taskId, station, title, priority: "High", assigned, deadline: "Today" };
-      allTasks.push({ id: taskId, ...body, status: "Pending" });
-      renderManagementTasks();
-      document.getElementById('task-title').value = "";
+      const button = document.getElementById("dispatch-task-button");
+      const submittingPin = currentUser.pin;
+      const selectedPhoto = taskPhoto;
+      button.disabled = true;
+      button.textContent = "Preparing...";
       try {
+        const photo = selectedPhoto ? await encodeReportPhoto(selectedPhoto) : null;
+        if (!currentUser || currentUser.pin !== submittingPin) throw new Error("Your session changed. Sign in again before dispatching the task.");
+        const taskId = "TSK-" + crypto.randomUUID();
+        const body = { action: "createTask", pin: submittingPin, taskId, station, title, priority: "High", assigned, deadline, photo };
+        button.textContent = "Dispatching...";
         await postData(body);
-        const savedData = await getAPI("getData", { pin: currentUser.pin });
-        if (!savedData.tasks.some(savedTask => String(savedTask.id) === taskId)) {
-          throw new Error("The server did not confirm the task");
+        const savedData = await getAPI("getData", { pin: submittingPin });
+        const savedTask = savedData.tasks.find(task => String(task.id) === taskId);
+        if (!savedTask || (photo && !savedTask.hasPhoto)) {
+          throw new Error(photo && savedTask
+            ? "The server did not confirm the task picture. Deploy the updated Code.gs and try again."
+            : "The server did not confirm the task");
         }
-      } catch (error) {
-        allTasks = allTasks.filter(task => task.id !== taskId);
+        document.getElementById('task-title').value = "";
+        if (taskPhoto === selectedPhoto) {
+          if (taskPhoto) URL.revokeObjectURL(taskPhoto.preview);
+          taskPhoto = null;
+          document.getElementById("task-photo").value = "";
+          document.getElementById("task-photo-preview").replaceChildren();
+          document.getElementById("task-photo-preview").classList.add("hidden");
+        }
+        allTasks = savedData.tasks;
         renderManagementTasks();
+      } catch (error) {
         alert(`Could not dispatch the task: ${error.message}`);
+        if (currentUser && currentUser.pin === submittingPin) refreshData();
+      } finally {
+        button.disabled = false;
+        button.textContent = "Dispatch Job";
       }
     }
 
-    async function updateTask(taskId, status, reason = "") {
+    async function updateTask(taskId, status, details = {}) {
       const task = allTasks.find(t => t.id === taskId);
-      const previousState = task ? { status: task.status, delayReason: task.delayReason } : null;
+      const previousState = task ? { ...task } : null;
+      const submittingPin = currentUser.pin;
       if (task) {
         task.status = status;
-        task.delayReason = reason;
+        if (status === "Delayed") {
+          task.delayReason = details.delayReason;
+          task.delayDate = details.delayDate;
+        } else {
+          task.completionComment = details.comment;
+          task.hasCompletionPhoto = Boolean(details.photo);
+        }
       }
       if (hasManagementAccess(currentUser.role)) renderManagementTasks();
       else renderWorkerTasks();
 
       try {
-        await postData({ action: "updateTask", pin: currentUser.pin, taskId, status, delayReason: reason });
-        const savedData = await getAPI("getData", { pin: currentUser.pin });
+        await postData({
+          action: "updateTask",
+          pin: submittingPin,
+          taskId,
+          status,
+          delayDate: details.delayDate || "",
+          delayReason: details.delayReason || "",
+          comment: details.comment || "",
+          photo: details.photo || null
+        });
+        if (!currentUser || currentUser.pin !== submittingPin) return false;
+        const savedData = await getAPI("getData", { pin: submittingPin });
         const savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
-        if (!savedTask || savedTask.status !== status) {
+        const updateConfirmed = savedTask && savedTask.status === status
+          && (status !== "Delayed" || (savedTask.delayDate === details.delayDate && savedTask.delayReason === details.delayReason))
+          && (status !== "Completed" || (
+            savedTask.completionComment === details.comment
+            && (!details.photo || savedTask.hasCompletionPhoto)
+          ));
+        if (!updateConfirmed) {
           throw new Error("The server did not confirm the task update");
         }
+        allTasks = savedData.tasks;
+        if (hasManagementAccess(currentUser.role)) renderManagementTasks();
+        else renderWorkerTasks();
+        return true;
       } catch (error) {
         if (task && previousState) {
-          task.status = previousState.status;
-          task.delayReason = previousState.delayReason;
+          Object.assign(task, previousState);
         }
+        if (!currentUser || currentUser.pin !== submittingPin) return false;
         if (hasManagementAccess(currentUser.role)) renderManagementTasks();
         else renderWorkerTasks();
         alert(`Could not update the task: ${error.message}`);
+        return false;
       }
     }
 
-    function openDelayModal(id, title) {
+    function openDelayModal(id) {
       activeDelayedTaskId = id;
-      document.getElementById('delay-task-title').innerText = title;
+      const task = allTasks.find(item => String(item.id) === String(id));
+      if (!task) return;
+      document.getElementById('delay-task-title').innerText = task.title;
+      const dateInput = document.getElementById("delay-date-input");
+      const today = localDateString();
+      dateInput.min = today;
+      dateInput.value = task.delayDate >= today ? task.delayDate : (task.deadline >= today ? task.deadline : today);
+      updateDelayWeekday();
       document.getElementById('modal-delay').classList.remove('hidden');
     }
     function closeDelayModal() {
       document.getElementById('modal-delay').classList.add('hidden');
       document.getElementById('delay-reason-input').value = "";
     }
-    function confirmDelay() {
-      const reason = document.getElementById('delay-reason-input').value;
-      if (!reason) return alert("Please state reason for delay");
-      updateTask(activeDelayedTaskId, "Delayed", reason);
-      closeDelayModal();
+    async function confirmDelay() {
+      const reason = document.getElementById('delay-reason-input').value.trim();
+      const delayDate = document.getElementById("delay-date-input").value;
+      if (!delayDate) return alert("Please choose a revised target date.");
+      if (!reason) return alert("Please provide a justification for the delay.");
+      if (reason.length > 3000) return alert("Justification must be 3000 characters or fewer.");
+      if (await updateTask(activeDelayedTaskId, "Delayed", { delayDate, delayReason: reason })) closeDelayModal();
+    }
+
+    function updateDelayWeekday() {
+      const value = document.getElementById("delay-date-input").value;
+      document.getElementById("delay-date-day").textContent = value
+        ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { weekday: "long" })
+        : "";
+    }
+
+    function openCompleteModal(id) {
+      const task = allTasks.find(item => String(item.id) === String(id));
+      if (!task) return;
+      activeCompletionTaskId = id;
+      document.getElementById("complete-task-title").textContent = task.title;
+      document.getElementById("complete-comment-input").value = "";
+      document.getElementById("complete-photo-input").value = "";
+      document.getElementById("modal-complete").classList.remove("hidden");
+      selectCompletionPhoto(null);
+    }
+
+    function closeCompleteModal() {
+      document.getElementById("modal-complete").classList.add("hidden");
+      document.getElementById("complete-task-form").reset();
+      selectCompletionPhoto(null);
+      activeCompletionTaskId = null;
+    }
+
+    function selectCompletionPhoto(file) {
+      if (completionPhoto) URL.revokeObjectURL(completionPhoto.preview);
+      completionPhoto = null;
+      const preview = document.getElementById("complete-photo-preview");
+      preview.replaceChildren();
+      preview.classList.add("hidden");
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        document.getElementById("complete-photo-input").value = "";
+        alert("Please choose an image file.");
+        return;
+      }
+      if (file.size > 20000000) {
+        document.getElementById("complete-photo-input").value = "";
+        alert("Please choose an image smaller than 20 MB.");
+        return;
+      }
+      completionPhoto = { name: file.name, file, preview: URL.createObjectURL(file) };
+      const image = document.createElement("img");
+      image.src = completionPhoto.preview;
+      image.alt = file.name;
+      image.className = "max-h-40 rounded-lg border border-emerald-800 object-contain";
+      preview.appendChild(image);
+      preview.classList.remove("hidden");
+    }
+
+    async function submitTaskCompletion(event) {
+      event.preventDefault();
+      const taskId = activeCompletionTaskId;
+      if (!taskId) return;
+      const button = document.getElementById("complete-task-submit");
+      const comment = document.getElementById("complete-comment-input").value.trim();
+      const selectedPhoto = completionPhoto;
+      button.disabled = true;
+      button.textContent = "Preparing...";
+      try {
+        const photo = selectedPhoto ? await encodeReportPhoto(selectedPhoto) : null;
+        const saved = await updateTask(taskId, "Completed", { comment, photo });
+        if (saved) closeCompleteModal();
+      } catch (error) {
+        alert(`Could not prepare the completion details: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Mark Complete";
+      }
     }
 
     async function deleteTask(taskId) {
@@ -1151,6 +1434,108 @@
       }
     }
 
+    function setStationListStatus(message, isError = false) {
+      const status = document.getElementById("station-list-status");
+      status.textContent = message;
+      status.className = `text-xs md:col-span-5 ${isError ? "text-rose-400" : "text-emerald-400"}`;
+    }
+
+    async function loadStations(selectedStation = "") {
+      if (!currentUser || !hasManagementAccess(currentUser.role)) return;
+      const pin = currentUser.pin;
+      try {
+        const data = await getAPI("getStations", { pin });
+        if (!currentUser || currentUser.pin !== pin) return null;
+        if (!Array.isArray(data.stations) || !data.stations.length) {
+          throw new Error("The server returned no stations");
+        }
+        const select = document.getElementById("task-station");
+        select.replaceChildren(...data.stations.map(station => {
+          const option = document.createElement("option");
+          option.value = station;
+          option.textContent = station;
+          return option;
+        }));
+        if (selectedStation && data.stations.includes(selectedStation)) select.value = selectedStation;
+        document.getElementById("remove-station-button").disabled = data.stations.length <= 1;
+        if (data.stations.length <= 1) {
+          document.getElementById("remove-station-button").title = "At least one station must remain";
+        } else {
+          document.getElementById("remove-station-button").removeAttribute("title");
+        }
+        setStationListStatus("Station list is shared and saved for all managers.");
+        return data.stations;
+      } catch (error) {
+        setStationListStatus(
+          `Could not load stations: ${error.message}. Deploy the updated Code.gs if this action is not supported.`,
+          true
+        );
+        return null;
+      }
+    }
+
+    async function addStation() {
+      if (!currentUser || !hasManagementAccess(currentUser.role)) return;
+      const input = document.getElementById("new-station-name");
+      const station = input.value.trim();
+      if (!station) {
+        setStationListStatus("Enter a station name first.", true);
+        input.focus();
+        return;
+      }
+      const button = document.getElementById("add-station-button");
+      button.disabled = true;
+      try {
+        await postData({ action: "addStation", pin: currentUser.pin, station });
+        const stations = await loadStations(station);
+        if (!stations) return;
+        if (!stations.some(savedStation => savedStation.toLowerCase() === station.toLowerCase())) {
+          throw new Error("The server did not confirm the station was saved");
+        }
+        if (input.value.trim() === station) input.value = "";
+        setStationListStatus(`"${station}" is saved and available to all managers.`);
+      } catch (error) {
+        setStationListStatus(`Could not add station: ${error.message}`, true);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function removeStation() {
+      if (!currentUser || !hasManagementAccess(currentUser.role)) return;
+      const select = document.getElementById("task-station");
+      const station = select.value;
+      if (!station) return;
+      if (!confirm(`Remove "${station}" from the station list? Existing tasks and account assignments will not change.`)) return;
+      const button = document.getElementById("remove-station-button");
+      button.disabled = true;
+      try {
+        await postData({ action: "removeStation", pin: currentUser.pin, station });
+        const stations = await loadStations();
+        if (!stations) return;
+        if (stations.some(savedStation => savedStation.toLowerCase() === station.toLowerCase())) {
+          throw new Error("The server did not confirm the station was removed");
+        }
+        setStationListStatus(`"${station}" was removed from future dispatch choices. Existing assignments are unchanged.`);
+      } catch (error) {
+        setStationListStatus(`Could not remove station: ${error.message}`, true);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    document.getElementById("task-photo").addEventListener("change", event => selectTaskPhoto(event.target.files[0]));
+    document.getElementById("add-station-button").addEventListener("click", addStation);
+    document.getElementById("new-station-name").addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addStation();
+      }
+    });
+    document.getElementById("remove-station-button").addEventListener("click", removeStation);
+    document.getElementById("complete-photo-input").addEventListener("change", event => selectCompletionPhoto(event.target.files[0]));
+    document.getElementById("complete-task-form").addEventListener("submit", submitTaskCompletion);
+    document.getElementById("delay-date-input").addEventListener("change", updateDelayWeekday);
     document.getElementById("login-form").addEventListener("submit", event => {
       event.preventDefault();
       handleLogin();
@@ -1186,8 +1571,8 @@
       if (!button) return;
       const task = allTasks.find(item => String(item.id) === button.dataset.taskId);
       if (!task) return;
-      if (button.dataset.taskAction === "complete") updateTask(task.id, "Completed");
-      if (button.dataset.taskAction === "delay") openDelayModal(task.id, task.title);
+      if (button.dataset.taskAction === "complete") openCompleteModal(task.id);
+      if (button.dataset.taskAction === "delay") openDelayModal(task.id);
     });
     [document.getElementById("manager-work-reports"), document.getElementById("contractor-work-report-list")].forEach(container => {
       container.addEventListener("click", event => {
@@ -1200,10 +1585,12 @@
       if (!button) return;
       const task = allTasks.find(item => String(item.id) === button.dataset.taskId);
       if (!task) return;
-      if (button.dataset.taskAction === "complete") updateTask(task.id, "Completed");
-      if (button.dataset.taskAction === "delay") openDelayModal(task.id, task.title);
+      if (button.dataset.taskAction === "complete") openCompleteModal(task.id);
+      if (button.dataset.taskAction === "delay") openDelayModal(task.id);
     });
     addBuilderField();
+    document.getElementById("task-deadline").value = localDateString();
+    document.getElementById("task-deadline").min = localDateString();
     document.getElementById("login-pin").focus();
   </script>
 </body>
