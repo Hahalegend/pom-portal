@@ -55,6 +55,7 @@
   <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
     <nav class="flex gap-2 overflow-x-auto border-b border-slate-800 pb-3">
       <button onclick="showManagementTab('overview')" class="management-tab rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Overview</button>
+      <button onclick="showManagementTab('oer')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">OER Trends</button>
       <button id="manager-accounts-tab" onclick="showManagementTab('accounts')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Accounts</button>
       <button onclick="showManagementTab('builder')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">UI Builder</button>
       <button onclick="showManagementTab('reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Reports</button>
@@ -67,10 +68,11 @@
         <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
         <div class="text-xl font-black text-white mt-1"><span id="m-throughput">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <button type="button" onclick="showManagementTab('oer')" aria-label="Open OER trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500">
         <span class="text-[10px] text-slate-400 uppercase font-bold">OER Rate</span>
         <div class="text-xl font-black text-amber-400 mt-1"><span id="m-oer">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
-      </div>
+        <span class="mt-2 block text-[10px] text-slate-500">View OER trends <i class="fa-solid fa-arrow-right ml-1"></i></span>
+      </button>
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <span class="text-[10px] text-slate-400 uppercase font-bold">KER Rate</span>
         <div class="text-xl font-black text-sky-400 mt-1"><span id="m-ker">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
@@ -127,6 +129,61 @@
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Station Monitoring</h2>
       <div id="m-tasks-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
     </div>
+    </section>
+
+    <section id="management-oer" class="hidden space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-white">OER performance trends</h2>
+          <p class="mt-1 text-xs text-slate-400">Record daily OER values and compare daily, monthly, or yearly averages.</p>
+        </div>
+        <button type="button" onclick="loadOerHistory()" class="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+      </div>
+
+      <form id="oer-entry-form" class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label class="space-y-1 text-xs text-slate-400">
+          <span>Record date</span>
+          <input id="oer-entry-date" type="date" required class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        </label>
+        <label class="space-y-1 text-xs text-slate-400">
+          <span>OER (%)</span>
+          <input id="oer-entry-value" type="number" required min="0" max="100" step="0.01" inputmode="decimal" placeholder="e.g. 19.8" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        </label>
+        <button id="oer-entry-submit" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Save daily OER</button>
+        <p id="oer-entry-status" role="status" aria-live="polite" class="hidden text-xs sm:col-span-3"></p>
+      </form>
+
+      <div class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Choose trend graphs</h3>
+          <p class="mt-1 text-xs text-slate-500">Select one, two, or all three. Monthly and yearly values are averages of the daily records.</p>
+        </div>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-300">
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="day" checked class="accent-amber-500"> Daily</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="month" class="accent-amber-500"> Monthly average</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="oer-period" value="year" class="accent-amber-500"> Yearly average</label>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="space-y-1 text-xs text-slate-400">
+            <span>From date (optional)</span>
+            <input id="oer-filter-from" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          </label>
+          <label class="space-y-1 text-xs text-slate-400">
+            <span>To date (optional)</span>
+            <input id="oer-filter-to" type="date" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          </label>
+        </div>
+      </div>
+      <div id="oer-trend-status" role="status" class="hidden rounded-lg border border-rose-900 bg-rose-950/40 p-3 text-xs text-rose-300"></div>
+      <div id="oer-chart-list" class="grid grid-cols-1 gap-4 xl:grid-cols-2"></div>
+
+      <div class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Daily OER history</h3>
+          <span id="oer-history-count" class="text-xs text-slate-500"></span>
+        </div>
+        <div id="oer-history-table" class="overflow-x-auto"></div>
+      </div>
     </section>
 
     <section id="management-builder" class="hidden space-y-4">
@@ -336,6 +393,7 @@
     let customSubmissions = [];
     let managedAccounts = [];
     let workReports = [];
+    let oerHistory = [];
     let taskPhoto = null;
     let completionPhoto = null;
     const workReportPhotos = { before: [], after: [] };
@@ -462,6 +520,7 @@
       customForms = [];
       customSubmissions = [];
       managedAccounts = [];
+      oerHistory = [];
       allTasks = [];
       document.getElementById("work-report-form").reset();
       document.getElementById("work-report-before-preview").replaceChildren();
@@ -517,7 +576,7 @@
 
     function showManagementTab(tab) {
       if (tab === "accounts" && !hasAccountManagementAccess(currentUser && currentUser.role)) return;
-      const tabs = ["overview", "accounts", "builder", "reports", "work-reports"];
+      const tabs = ["overview", "oer", "accounts", "builder", "reports", "work-reports"];
       tabs.forEach(name => {
         document.getElementById(`management-${name}`).classList.toggle("hidden", name !== tab);
       });
@@ -530,6 +589,188 @@
       if (tab === "builder") renderManagerForms();
       if (tab === "work-reports") loadWorkReports();
       if (tab === "accounts") loadAccounts();
+      if (tab === "oer") loadOerHistory();
+    }
+
+    async function loadOerHistory() {
+      const pin = currentUser && currentUser.pin;
+      if (!pin || !hasManagementAccess(currentUser.role)) return;
+      const chartList = document.getElementById("oer-chart-list");
+      document.getElementById("oer-trend-status").classList.add("hidden");
+      chartList.innerHTML = '<p class="text-xs text-slate-500">Loading OER history...</p>';
+      try {
+        const data = await getAPI("getOerHistory", { pin });
+        if (!currentUser || currentUser.pin !== pin) return;
+        if (!Array.isArray(data.records)) throw new Error("The server returned invalid OER history");
+        oerHistory = data.records;
+        const todayRecord = oerHistory.find(record => record.date === localDateString());
+        if (todayRecord) document.getElementById("m-oer").textContent = todayRecord.oer;
+        renderOerHistory();
+      } catch (error) {
+        chartList.replaceChildren();
+        const status = document.getElementById("oer-trend-status");
+        status.textContent = `Could not load OER history: ${error.message}`;
+        status.classList.remove("hidden");
+      }
+    }
+
+    function renderOerHistory() {
+      renderOerCharts();
+      const historyTable = document.getElementById("oer-history-table");
+      const records = [...oerHistory].sort((left, right) => right.date.localeCompare(left.date));
+      document.getElementById("oer-history-count").textContent = `${records.length} day${records.length === 1 ? "" : "s"}`;
+      if (!records.length) {
+        historyTable.innerHTML = '<p class="text-xs text-slate-500">No OER values recorded yet. Add a daily value above to start tracking trends.</p>';
+        return;
+      }
+      historyTable.innerHTML = `
+        <table class="w-full min-w-[360px] text-left text-xs">
+          <thead class="text-slate-500"><tr><th class="pb-2 pr-4 font-semibold">Date</th><th class="pb-2 pr-4 font-semibold">OER</th><th class="pb-2 font-semibold">Updated by</th></tr></thead>
+          <tbody>${records.slice(0, 20).map(record => `
+            <tr class="border-t border-slate-800 text-slate-300">
+              <td class="py-2 pr-4">${escapeHTML(record.date)}</td>
+              <td class="py-2 pr-4 font-bold text-amber-300">${Number(record.oer).toFixed(2)}%</td>
+              <td class="py-2">${escapeHTML(record.updatedBy || "—")}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>${records.length > 20 ? '<p class="mt-2 text-[11px] text-slate-500">Showing the 20 most recent entries.</p>' : ""}
+      `;
+    }
+
+    function getOerChartPoints(records, period) {
+      const buckets = new Map();
+      records.forEach(record => {
+        const key = period === "day" ? record.date
+          : period === "month" ? record.date.slice(0, 7)
+            : record.date.slice(0, 4);
+        const bucket = buckets.get(key) || { total: 0, count: 0 };
+        bucket.total += Number(record.oer);
+        bucket.count++;
+        buckets.set(key, bucket);
+      });
+      return [...buckets.entries()].sort(([left], [right]) => left.localeCompare(right))
+        .map(([label, bucket]) => ({
+          label,
+          value: bucket.total / bucket.count,
+          count: bucket.count
+        }));
+    }
+
+    function renderOerChart(period, points) {
+      const titles = { day: "Daily OER", month: "Monthly average OER", year: "Yearly average OER" };
+      const width = 720;
+      const height = 280;
+      const left = 52;
+      const right = 14;
+      const top = 18;
+      const bottom = 42;
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+      const maxValue = Math.max(...points.map(point => point.value), 0);
+      const maxY = Math.min(100, Math.max(10, Math.ceil(maxValue / 10) * 10));
+      const x = index => left + (points.length === 1 ? plotWidth / 2 : index * plotWidth / (points.length - 1));
+      const y = value => top + plotHeight - value / maxY * plotHeight;
+      const grid = Array.from({ length: 5 }, (_, index) => {
+        const value = maxY * index / 4;
+        const position = y(value);
+        return `<line x1="${left}" y1="${position}" x2="${width - right}" y2="${position}" stroke="#334155" stroke-width="1"/><text x="${left - 8}" y="${position + 4}" fill="#94a3b8" font-size="11" text-anchor="end">${value.toFixed(0)}%</text>`;
+      }).join("");
+      const path = points.map((point, index) => `${index ? "L" : "M"} ${x(index)} ${y(point.value)}`).join(" ");
+      const labelIndexes = new Set(Array.from({ length: Math.min(points.length, 6) }, (_, index) =>
+        Math.round(index * (points.length - 1) / Math.max(1, Math.min(points.length, 6) - 1))
+      ));
+      const labels = [...labelIndexes].map(index => {
+        const point = points[index];
+        const label = period === "day"
+          ? point.label.slice(5)
+          : period === "month"
+            ? new Date(`${point.label}-01T12:00:00`).toLocaleDateString(undefined, { month: "short", year: "2-digit" })
+            : point.label;
+        return `<text x="${x(index)}" y="${height - 14}" fill="#94a3b8" font-size="11" text-anchor="middle">${escapeHTML(label)}</text>`;
+      }).join("");
+      const dots = points.map((point, index) =>
+        `<circle cx="${x(index)}" cy="${y(point.value)}" r="3.5" fill="#fbbf24"><title>${escapeHTML(point.label)}: ${point.value.toFixed(2)}%</title></circle>`
+      ).join("");
+      const average = points.reduce((sum, point) => sum + point.value, 0) / points.length;
+      let evaluation = `Average OER: ${average.toFixed(2)}%.`;
+      if (points.length > 1) {
+        const change = points[points.length - 1].value - points[0].value;
+        const direction = change > 0.005 ? "increased" : change < -0.005 ? "decreased" : "was steady";
+        evaluation += ` Trend ${direction}${direction === "was steady" ? "" : ` by ${Math.abs(change).toFixed(2)} percentage points`} from ${points[0].label} to ${points[points.length - 1].label}.`;
+      } else {
+        evaluation += " Add more periods to evaluate the trend.";
+      }
+      return `
+        <article class="space-y-2 rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-bold text-white">${titles[period]}</h3>
+            <span class="text-[11px] text-slate-500">${points.length} period${points.length === 1 ? "" : "s"}</span>
+          </div>
+          <p class="text-xs text-slate-400">${escapeHTML(evaluation)}</p>
+          <div class="overflow-x-auto">
+            <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${titles[period]} trend graph" class="h-64 w-full min-w-[520px]">
+              ${grid}
+              <path d="${path}" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+              ${dots}${labels}
+            </svg>
+          </div>
+        </article>`;
+    }
+
+    function renderOerCharts() {
+      const chartList = document.getElementById("oer-chart-list");
+      const status = document.getElementById("oer-trend-status");
+      status.classList.add("hidden");
+      const from = document.getElementById("oer-filter-from").value;
+      const to = document.getElementById("oer-filter-to").value;
+      if (from && to && from > to) {
+        status.textContent = "The start date must be before the end date.";
+        status.classList.remove("hidden");
+        chartList.replaceChildren();
+        return;
+      }
+      const selected = [...document.querySelectorAll('input[name="oer-period"]:checked')].map(input => input.value);
+      if (!selected.length) {
+        chartList.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">Select at least one graph period.</p>';
+        return;
+      }
+      const filtered = oerHistory.filter(record =>
+        (!from || record.date >= from) && (!to || record.date <= to)
+      );
+      if (!filtered.length) {
+        chartList.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">No OER records match this date range.</p>';
+        return;
+      }
+      chartList.innerHTML = selected.map(period => {
+        const points = getOerChartPoints(filtered, period);
+        return renderOerChart(period, points);
+      }).join("");
+    }
+
+    async function saveOerEntry(event) {
+      event.preventDefault();
+      const button = document.getElementById("oer-entry-submit");
+      const date = document.getElementById("oer-entry-date").value;
+      const oer = document.getElementById("oer-entry-value").value;
+      const status = document.getElementById("oer-entry-status");
+      button.disabled = true;
+      button.textContent = "Saving...";
+      try {
+        const result = await postData({ action: "saveOer", pin: currentUser.pin, date, oer });
+        status.textContent = result.replaced
+          ? `Updated the OER value for ${date}.`
+          : `Saved OER for ${date}.`;
+        status.className = "text-xs text-emerald-400 sm:col-span-3";
+        document.getElementById("oer-entry-value").value = "";
+        await loadOerHistory();
+      } catch (error) {
+        status.textContent = `Could not save OER: ${error.message}`;
+        status.className = "text-xs text-rose-400 sm:col-span-3";
+      } finally {
+        status.classList.remove("hidden");
+        button.disabled = false;
+        button.textContent = "Save daily OER";
+      }
     }
 
     async function loadAccounts() {
@@ -1532,6 +1773,10 @@
     document.getElementById("builder-add-field").addEventListener("click", () => addBuilderField());
     document.getElementById("form-builder").addEventListener("submit", createCustomForm);
     document.getElementById("account-create-form").addEventListener("submit", createAccount);
+    document.getElementById("oer-entry-form").addEventListener("submit", saveOerEntry);
+    document.querySelectorAll('input[name="oer-period"]').forEach(input => input.addEventListener("change", renderOerCharts));
+    document.getElementById("oer-filter-from").addEventListener("change", renderOerCharts);
+    document.getElementById("oer-filter-to").addEventListener("change", renderOerCharts);
     document.getElementById("manager-accounts-list").addEventListener("click", event => {
       const button = event.target.closest("button[data-account-save]");
       if (button) updateAccountRole(button.dataset.accountSave, button);
@@ -1580,6 +1825,7 @@
     addBuilderField();
     document.getElementById("task-deadline").value = localDateString();
     document.getElementById("task-deadline").min = localDateString();
+    document.getElementById("oer-entry-date").value = localDateString();
     document.getElementById("login-pin").focus();
   </script>
 </body>

@@ -46,6 +46,14 @@ function doGet(e) {
     return sendJSON({ stations: readStations(ss) });
   }
 
+  if (action === "getOerHistory") {
+    const user = findUser(ss, params.pin);
+    if (!user || !hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required to view OER history" });
+    }
+    return sendJSON({ records: readOerHistory(getOerSheet(ss)) });
+  }
+
   if (action === "getData") {
     const user = findUser(ss, params.pin);
     if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
@@ -143,6 +151,39 @@ function doPost(e) {
   }
   const user = findUser(ss, body.pin);
   if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+
+  if (body.action === "saveOer") {
+    if (!hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required to save OER values" });
+    }
+    const date = String(body.date || "").trim();
+    const oerValue = String(body.oer == null ? "" : body.oer).trim();
+    const oer = Number(oerValue);
+    if (!isValidTaskDate(date) || !oerValue || !Number.isFinite(oer) || oer < 0 || oer > 100) {
+      return sendJSON({ success: false, message: "Enter a valid date and an OER value from 0 to 100" });
+    }
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "OER history is busy. Please try again." });
+    }
+    try {
+      const sheet = getOerSheet(ss);
+      const rows = sheet.getLastRow() > 1
+        ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat()
+        : [];
+      const rowIndex = rows.findIndex(value => normalizeTaskDate(value) === date);
+      const rowNumber = rowIndex < 0 ? sheet.getLastRow() + 1 : rowIndex + 2;
+      sheet.getRange(rowNumber, 1).setNumberFormat("@");
+      sheet.getRange(rowNumber, 2).setNumberFormat("0.00");
+      sheet.getRange(rowNumber, 1, 1, 4).setValues([[
+        date, oer, new Date(), user.name
+      ]]);
+      SpreadsheetApp.flush();
+      return sendJSON({ success: true, date: date, oer: oer, replaced: rowIndex >= 0 });
+    } finally {
+      lock.releaseLock();
+    }
+  }
 
   if (body.action === "addStation" || body.action === "removeStation") {
     if (!hasManagementAccess(user.role)) {
@@ -303,7 +344,7 @@ function doPost(e) {
   }
 
   if (body.action === "updateTask") {
-    if (!hasManagementAccess(user.role) && !isWorkerRole(user.role)) {
+    if (isContractor(user.role)) {
       return sendJSON({ success: false, message: "Not authorized to update tasks" });
     }
     const taskSheet = ss.getSheetByName("Station_Tasks");
@@ -333,9 +374,7 @@ function doPost(e) {
       const data = taskSheet.getDataRange().getValues();
       for (let i = 1; i < data.length; i++) {
         if (String(data[i][0]) === String(body.taskId)) {
-          const userCanUpdate = hasManagementAccess(user.role)
-            || String(data[i][1]) === String(user.station)
-            || String(data[i][4]).includes(String(user.name));
+          const userCanUpdate = canViewTask(user, data[i]);
           if (!userCanUpdate) {
             return sendJSON({ success: false, message: "You are not assigned to this task" });
           }
@@ -517,7 +556,7 @@ function isWorkerRole(role) {
 
 function canViewTask(user, task) {
   return hasManagementAccess(user.role)
-    || (isWorkerRole(user.role)
+    || (!isContractor(user.role)
       && (String(task[1]) === String(user.station) || String(task[4]).includes(String(user.name))));
 }
 
@@ -593,6 +632,28 @@ function getStationSheet(ss) {
     ]);
   }
   return sheet;
+}
+
+function getOerSheet(ss) {
+  let sheet = ss.getSheetByName("OER_History");
+  if (!sheet) sheet = ss.insertSheet("OER_History");
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Date", "OER (%)", "Updated At", "Updated By"]);
+  }
+  return sheet;
+}
+
+function readOerHistory(sheet) {
+  if (sheet.getLastRow() <= 1) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    .map(row => ({
+      date: normalizeTaskDate(row[0]),
+      oer: row[1] === "" || row[1] == null ? NaN : Number(row[1]),
+      updatedAt: row[2] instanceof Date ? row[2].toISOString() : String(row[2] || ""),
+      updatedBy: String(row[3] || "")
+    }))
+    .filter(record => record.date && Number.isFinite(record.oer) && record.oer >= 0 && record.oer <= 100)
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function readStations(ss) {
