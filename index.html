@@ -31,7 +31,7 @@
       </div>
 
       <div class="text-[11px] text-slate-500 border-t border-slate-800 pt-3">
-        Demo PINs: <b>1111</b> (Management) | <b>2222</b> (Worker)
+        Sign in with your assigned PIN. Contact your supervisor if you need access.
       </div>
     </div>
   </div>
@@ -49,9 +49,18 @@
       <i class="fa-solid fa-right-from-bracket mr-1"></i> Exit
     </button>
   </header>
+  <div id="api-error" role="alert" class="mx-auto mt-4 hidden max-w-6xl rounded-lg border border-rose-800 bg-rose-950/50 p-3 text-xs text-rose-300"></div>
 
   <!-- 2. MANAGEMENT PAGE -->
   <main id="screen-management" class="flex-1 p-4 max-w-6xl w-full mx-auto space-y-6 hidden">
+    <nav class="flex gap-2 overflow-x-auto border-b border-slate-800 pb-3">
+      <button onclick="showManagementTab('overview')" class="management-tab rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Overview</button>
+      <button onclick="showManagementTab('builder')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">UI Builder</button>
+      <button onclick="showManagementTab('reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Reports</button>
+      <button onclick="showManagementTab('work-reports')" class="management-tab rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-400">Work Reports</button>
+    </nav>
+
+    <section id="management-overview" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <span class="text-[10px] text-slate-400 uppercase font-bold">Throughput</span>
@@ -98,11 +107,76 @@
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Station Monitoring</h2>
       <div id="m-tasks-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
     </div>
+    </section>
+
+    <section id="management-builder" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-4">
+        <div>
+          <h2 class="text-sm font-bold text-white">Create a screen</h2>
+          <p class="mt-1 text-xs text-slate-400">Build an operation or report form for workers. Their submissions will appear in Reports.</p>
+        </div>
+        <form id="form-builder" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="space-y-1 text-xs text-slate-400">
+              <span>Screen name</span>
+              <input id="builder-name" required maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" placeholder="e.g. Daily Boiler Inspection">
+            </label>
+            <label class="space-y-1 text-xs text-slate-400">
+              <span>Screen type</span>
+              <select id="builder-type" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                <option value="Operation">Operation</option>
+                <option value="Report">Report</option>
+              </select>
+            </label>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Form fields</h3>
+              <button id="builder-add-field" type="button" class="rounded bg-slate-800 px-3 py-1.5 text-xs font-bold text-white">Add field</button>
+            </div>
+            <div id="builder-fields" class="space-y-2"></div>
+          </div>
+          <button id="builder-save" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Create screen</button>
+        </form>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Your screens</h2>
+        <div id="manager-forms-list" class="space-y-2"></div>
+      </div>
+    </section>
+
+    <section id="management-reports" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-white">Submitted reports</h2>
+          <p class="mt-1 text-xs text-slate-400">Entries submitted through your custom operation and report screens.</p>
+        </div>
+        <button onclick="loadSubmissions()" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+      </div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <select id="report-form-filter" aria-label="Filter reports by screen" class="rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white">
+          <option value="all">All screens</option>
+        </select>
+        <input id="report-search" type="search" placeholder="Search reports..." aria-label="Search reports" class="rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white">
+      </div>
+      <div id="report-submissions" class="space-y-3"></div>
+    </section>
+
+    <section id="management-work-reports" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-white">Contractor work reports</h2>
+          <p class="mt-1 text-xs text-slate-400">View and print submitted work reports.</p>
+        </div>
+        <button onclick="loadWorkReports()" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+      </div>
+      <div id="manager-work-reports" class="space-y-3"></div>
+    </section>
   </main>
 
   <!-- 3. WORKER PAGE -->
   <main id="screen-worker" class="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+    <div id="worker-tasks-header" class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
       <div>
         <h2 class="text-sm font-bold text-white">My Station Tasks</h2>
         <p class="text-xs text-slate-400" id="w-station-banner">Showing tasks for your station</p>
@@ -112,6 +186,56 @@
       </button>
     </div>
     <div id="w-tasks-container" class="space-y-3"></div>
+    <section id="worker-operations-section" class="space-y-3">
+      <h2 class="px-1 text-xs font-bold uppercase tracking-wider text-slate-400">Operations &amp; Reports</h2>
+      <div id="w-custom-forms-container" class="space-y-3"></div>
+    </section>
+    <section id="contractor-work-reports" class="hidden space-y-4">
+      <div>
+        <h2 class="text-sm font-bold text-white">Work report</h2>
+        <p class="mt-1 text-xs text-slate-400">Create a report with before-and-after photos. Only you and management can view it.</p>
+      </div>
+      <form id="work-report-form" class="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <label class="block space-y-1 text-xs text-slate-400">
+          <span>Name of the work</span>
+          <input id="work-report-name" required maxlength="160" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white" placeholder="e.g. Replace conveyor belt">
+        </label>
+        <label class="block space-y-1 text-xs text-slate-400">
+          <span>Description</span>
+          <textarea id="work-report-description" required maxlength="5000" rows="4" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white" placeholder="Describe the work completed"></textarea>
+        </label>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-white">Before photos</h3>
+            <label class="inline-flex cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">
+              <i class="fa-solid fa-plus mr-1"></i> Add before pictures
+              <input id="work-report-before" type="file" accept="image/*" multiple class="sr-only">
+            </label>
+            <div id="work-report-before-preview" class="grid grid-cols-2 gap-2"></div>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-white">After photos</h3>
+            <label class="inline-flex cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">
+              <i class="fa-solid fa-plus mr-1"></i> Add after pictures
+              <input id="work-report-after" type="file" accept="image/*" multiple class="sr-only">
+            </label>
+            <div id="work-report-after-preview" class="grid grid-cols-2 gap-2"></div>
+          </div>
+        </div>
+        <label class="block space-y-1 text-xs text-slate-400">
+          <span>Comment</span>
+          <textarea id="work-report-comment" maxlength="3000" rows="3" class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white" placeholder="Additional notes"></textarea>
+        </label>
+        <button id="work-report-submit" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950">Submit work report</button>
+      </form>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">My work reports</h3>
+          <button onclick="loadWorkReports()" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300"><i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh</button>
+        </div>
+        <div id="contractor-work-report-list" class="space-y-3"></div>
+      </div>
+    </section>
   </main>
 
   <!-- DELAY MODAL -->
@@ -133,37 +257,53 @@
 
     let currentUser = null;
     let allTasks = [];
+    let customForms = [];
+    let customSubmissions = [];
+    let workReports = [];
+    const workReportPhotos = { before: [], after: [] };
     let activeDelayedTaskId = null;
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    async function getAPI(action, params = {}, allowFailure = false) {
+      const query = new URLSearchParams({ action, ...params, requestId: String(Date.now()) });
+      const response = await fetch(`${API_URL}?${query}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      if (data.success === false && !allowFailure) throw new Error(data.message || "The request was rejected");
+      return data;
+    }
 
     async function handleLogin() {
       const pin = document.getElementById('login-pin').value.trim();
       const err = document.getElementById('login-error');
       const btn = document.getElementById('btn-login');
+      err.textContent = "Invalid PIN. Please check with supervisor.";
       err.classList.add('hidden');
 
       if (!pin) return;
       btn.innerText = "Checking...";
 
       try {
-        const res = await fetch(`${API_URL}?action=login&pin=${pin}`);
-        const data = await res.json();
+        const data = await getAPI("login", { pin }, true);
 
         if (data.success) {
-          currentUser = data.user;
+          currentUser = { ...data.user, pin };
           setupSession();
         } else {
           err.classList.remove('hidden');
         }
       } catch (e) {
-        if (pin === "1111") {
-          currentUser = { name: "Manager Azmi", role: "Management", station: "All" };
-          setupSession();
-        } else if (pin === "2222") {
-          currentUser = { name: "Shahrul (Press)", role: "Worker", station: "Pressing" };
-          setupSession();
-        } else {
-          err.classList.remove('hidden');
-        }
+        err.textContent = "Unable to reach the sign-in service. Please try again.";
+        err.classList.remove('hidden');
       } finally {
         btn.innerText = "Sign In";
       }
@@ -178,18 +318,28 @@
 
       const badge = document.getElementById('role-badge');
       badge.innerText = currentUser.role;
-      badge.className = currentUser.role === 'Management' 
+      const managerAccess = hasManagementAccess(currentUser.role);
+      badge.className = managerAccess
         ? "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-amber-500 text-slate-950"
         : "text-[10px] font-black px-2 py-0.5 rounded uppercase bg-sky-500 text-slate-950";
 
-      if (currentUser.role === 'Management') {
+      if (managerAccess) {
         document.getElementById('screen-management').classList.remove('hidden');
+        showManagementTab('overview');
       } else {
         document.getElementById('screen-worker').classList.remove('hidden');
-        document.getElementById('w-station-banner').innerText = `Showing assigned tasks for ${currentUser.station}`;
+        const contractorView = isContractor(currentUser.role);
+        document.getElementById("worker-tasks-header").classList.toggle("hidden", contractorView);
+        document.getElementById("w-tasks-container").classList.toggle("hidden", contractorView);
+        document.getElementById("worker-operations-section").classList.toggle("hidden", contractorView);
+        document.getElementById("contractor-work-reports").classList.toggle("hidden", !contractorView);
+        if (!contractorView) {
+          document.getElementById('w-station-banner').innerText = `Showing assigned tasks for ${currentUser.station}`;
+        }
       }
 
       refreshData();
+      if (managerAccess || isContractor(currentUser.role)) loadWorkReports();
     }
 
     function handleLogout() {
@@ -197,15 +347,35 @@
       document.getElementById('screen-login').classList.remove('hidden');
       document.getElementById('screen-management').classList.add('hidden');
       document.getElementById('screen-worker').classList.add('hidden');
+      document.getElementById("worker-tasks-header").classList.remove("hidden");
+      document.getElementById("w-tasks-container").classList.remove("hidden");
+      document.getElementById("worker-operations-section").classList.remove("hidden");
+      document.getElementById("contractor-work-reports").classList.add("hidden");
       document.getElementById('app-bar').classList.add('hidden');
+      document.getElementById('api-error').classList.add('hidden');
       document.getElementById('login-pin').value = "";
+      Object.values(workReportPhotos).forEach(photos => photos.forEach(photo => URL.revokeObjectURL(photo.preview)));
+      workReportPhotos.before = [];
+      workReportPhotos.after = [];
+      workReports = [];
+      customForms = [];
+      customSubmissions = [];
+      allTasks = [];
+      document.getElementById("work-report-form").reset();
+      document.getElementById("work-report-before-preview").replaceChildren();
+      document.getElementById("work-report-after-preview").replaceChildren();
+      document.getElementById("manager-work-reports").replaceChildren();
+      document.getElementById("contractor-work-report-list").replaceChildren();
+      document.getElementById("report-submissions").replaceChildren();
     }
 
     async function refreshData() {
+      const errorBanner = document.getElementById("api-error");
+      errorBanner.classList.add("hidden");
       try {
-        const res = await fetch(`${API_URL}?action=getData`);
-        const data = await res.json();
+        const data = await getAPI("getData", { pin: currentUser.pin });
         allTasks = data.tasks || [];
+        customForms = Array.isArray(data.forms) ? data.forms : [];
 
         if (data.kpi && data.kpi.length > 0) {
           document.getElementById('m-throughput').innerText = data.kpi[1] || '850';
@@ -214,35 +384,479 @@
           document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
         }
       } catch (e) {
-        if (allTasks.length === 0) {
-          allTasks = [
-            { id: "TSK-101", station: "Pressing", title: "Adjust Cone Pressure on Press 2", priority: "High", assigned: "Shahrul (Press)", deadline: "17:00", status: "Delayed", delayReason: "Hydraulic oil leak" },
-            { id: "TSK-102", station: "Boiler & Power", title: "Check feed water conductivity", priority: "Medium", assigned: "Azlan", deadline: "19:00", status: "Pending", delayReason: "" }
-          ];
-        }
+        allTasks = [];
+        customForms = [];
+        errorBanner.textContent = `Could not load app data: ${e.message}`;
+        errorBanner.classList.remove("hidden");
       }
 
-      if (currentUser && currentUser.role === 'Management') {
+      if (currentUser && hasManagementAccess(currentUser.role)) {
         renderManagementTasks();
-      } else if (currentUser && currentUser.role === 'Worker') {
+        renderManagerForms();
+      } else if (currentUser) {
         renderWorkerTasks();
+        if (!isContractor(currentUser.role)) renderWorkerForms();
       }
+    }
+
+    function hasManagementAccess(role) {
+      const normalizedRole = String(role || "").trim().toLowerCase();
+      return normalizedRole === "management" || normalizedRole === "manager" || normalizedRole === "executive";
+    }
+
+    function isContractor(role) {
+      return String(role || "").trim().toLowerCase() === "contractor";
+    }
+
+    function showManagementTab(tab) {
+      const tabs = ["overview", "builder", "reports", "work-reports"];
+      tabs.forEach(name => {
+        document.getElementById(`management-${name}`).classList.toggle("hidden", name !== tab);
+      });
+      document.querySelectorAll(".management-tab").forEach((button, index) => {
+        const selected = tabs[index] === tab;
+        button.className = `management-tab rounded-lg px-3 py-2 text-xs font-bold ${selected ? "bg-slate-800 text-white" : "bg-slate-900 text-slate-400"}`;
+      });
+      if (tab === "reports") loadSubmissions();
+      if (tab === "builder") renderManagerForms();
+      if (tab === "work-reports") loadWorkReports();
+    }
+
+    function addBuilderField(label = "", type = "text", required = false) {
+      const row = document.createElement("div");
+      row.className = "grid grid-cols-1 md:grid-cols-[1fr_180px_auto_auto] gap-2 rounded-lg border border-slate-800 p-2";
+
+      const labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.maxLength = 80;
+      labelInput.required = true;
+      labelInput.value = label;
+      labelInput.placeholder = "Field name (e.g. Pressure)";
+      labelInput.className = "bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white";
+      labelInput.setAttribute("aria-label", "Field name");
+
+      const typeSelect = document.createElement("select");
+      typeSelect.className = "bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white";
+      typeSelect.setAttribute("aria-label", "Field type");
+      [["text", "Short text"], ["number", "Number"], ["date", "Date"], ["textarea", "Long text"], ["checkbox", "Yes / no"]].forEach(([value, text]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        typeSelect.appendChild(option);
+      });
+      typeSelect.value = type;
+
+      const requiredLabel = document.createElement("label");
+      requiredLabel.className = "flex items-center gap-2 px-2 text-xs text-slate-300";
+      const requiredInput = document.createElement("input");
+      requiredInput.type = "checkbox";
+      requiredInput.checked = required;
+      requiredLabel.append(requiredInput, document.createTextNode("Required"));
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.textContent = "Remove";
+      removeButton.className = "rounded bg-rose-950/60 px-3 py-2 text-xs text-rose-300";
+      removeButton.addEventListener("click", () => row.remove());
+
+      row.append(labelInput, typeSelect, requiredLabel, removeButton);
+      document.getElementById("builder-fields").appendChild(row);
+    }
+
+    async function createCustomForm(event) {
+      event.preventDefault();
+      const nameInput = document.getElementById("builder-name");
+      const rows = Array.from(document.getElementById("builder-fields").children);
+      const fields = rows.map(row => ({
+        label: row.querySelector('input[type="text"]').value.trim(),
+        type: row.querySelector("select").value,
+        required: row.querySelector('input[type="checkbox"]').checked
+      }));
+      const name = nameInput.value.trim();
+      const uniqueLabels = new Set(fields.map(field => field.label.toLowerCase()));
+      if (!name || fields.length === 0 || fields.some(field => !field.label) || uniqueLabels.size !== fields.length) {
+        alert("Add a screen name and fields with unique, non-empty names.");
+        return;
+      }
+
+      const button = document.getElementById("builder-save");
+      button.disabled = true;
+      button.textContent = "Saving...";
+      const form = {
+        id: `FORM-${crypto.randomUUID()}`,
+        name,
+        type: document.getElementById("builder-type").value,
+        fields
+      };
+      try {
+        await postData({ action: "createForm", pin: currentUser.pin, form });
+        const savedData = await getAPI("getData", { pin: currentUser.pin });
+        customForms = savedData.forms || [];
+        if (!customForms.some(savedForm => savedForm.id === form.id)) {
+          throw new Error("The server did not confirm the new screen");
+        }
+        document.getElementById("form-builder").reset();
+        document.getElementById("builder-fields").replaceChildren();
+        addBuilderField();
+        renderManagerForms();
+        alert("Screen created. Workers will see it after refreshing the app.");
+      } catch (error) {
+        alert(`Could not save the screen: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Create screen";
+      }
+    }
+
+    function renderManagerForms() {
+      const container = document.getElementById("manager-forms-list");
+      if (!container) return;
+      container.innerHTML = customForms.length
+        ? customForms.map(form => `
+          <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <span class="text-xs font-bold text-white">${escapeHTML(form.name)}</span>
+            <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(form.type)}</span>
+          </div>`).join("")
+        : '<p class="text-xs text-slate-500">No custom screens yet. Create one above.</p>';
+    }
+
+    function renderWorkerForms() {
+      const container = document.getElementById("w-custom-forms-container");
+      container.innerHTML = "";
+      if (!customForms.length) {
+        container.innerHTML = '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No custom operation or report forms are available yet.</p>';
+        return;
+      }
+
+      customForms.forEach(form => {
+        const card = document.createElement("form");
+        card.className = "space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4";
+        card.dataset.formId = form.id;
+        const fields = Array.isArray(form.fields) ? form.fields : [];
+        card.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="text-sm font-bold text-white">${escapeHTML(form.name)}</h3>
+              <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(form.type)}</span>
+            </div>
+          </div>
+          ${fields.map((field, index) => {
+            const fieldName = `field-${index}`;
+            const label = escapeHTML(field.label);
+            const required = field.required ? "required" : "";
+            if (field.type === "textarea") {
+              return `<label class="block space-y-1 text-xs text-slate-400"><span>${label}${field.required ? " *" : ""}</span><textarea name="${fieldName}" rows="3" ${required} class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white"></textarea></label>`;
+            }
+            if (field.type === "checkbox") {
+              return `<label class="flex items-center gap-2 text-xs text-slate-300"><input name="${fieldName}" type="checkbox" ${required} class="accent-amber-500"> ${label}${field.required ? " *" : ""}</label>`;
+            }
+            const inputType = ["number", "date"].includes(field.type) ? field.type : "text";
+            return `<label class="block space-y-1 text-xs text-slate-400"><span>${label}${field.required ? " *" : ""}</span><input name="${fieldName}" type="${inputType}" ${required} class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white"></label>`;
+          }).join("")}
+          <button class="rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white">Submit ${escapeHTML(form.type)}</button>
+        `;
+        card.addEventListener("submit", event => submitCustomForm(event, form));
+        container.appendChild(card);
+      });
+    }
+
+    async function submitCustomForm(event, form) {
+      event.preventDefault();
+      const formElement = event.currentTarget;
+      const values = {};
+      (form.fields || []).forEach((field, index) => {
+        const input = formElement.elements.namedItem(`field-${index}`);
+        values[field.label] = field.type === "checkbox" ? input.checked : input.value.trim();
+      });
+      const button = formElement.querySelector('button[type="submit"], button:not([type])');
+      button.disabled = true;
+      button.textContent = "Submitting...";
+      try {
+        const submissionId = crypto.randomUUID();
+        await postData({
+          action: "submitForm",
+          pin: currentUser.pin,
+          submissionId,
+          formId: form.id,
+          submittedBy: currentUser.name,
+          station: currentUser.station,
+          values
+        });
+        const result = await getAPI("checkSubmission", { pin: currentUser.pin, submissionId });
+        if (!result.exists) throw new Error("The server did not confirm the submission");
+        formElement.reset();
+        alert("Submission saved. Management can review it in Reports.");
+      } catch (error) {
+        alert(`Could not submit the form: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = `Submit ${form.type}`;
+      }
+    }
+
+    async function loadSubmissions() {
+      const container = document.getElementById("report-submissions");
+      container.innerHTML = '<p class="text-xs text-slate-500">Loading reports...</p>';
+      try {
+        const data = await getAPI("getSubmissions", { pin: currentUser.pin });
+        customSubmissions = Array.isArray(data.submissions) ? data.submissions : [];
+        renderSubmissions();
+      } catch (error) {
+        container.innerHTML = `<p class="text-xs text-rose-400">Could not load reports: ${escapeHTML(error.message)}</p>`;
+      }
+    }
+
+    function renderSubmissions() {
+      const container = document.getElementById("report-submissions");
+      const filter = document.getElementById("report-form-filter");
+      const selectedFormId = filter.value;
+      const availableForms = new Map();
+      customForms.forEach(form => availableForms.set(form.id, form.name));
+      customSubmissions.forEach(submission => availableForms.set(submission.formId, submission.formName));
+      filter.innerHTML = '<option value="all">All screens</option>' + Array.from(availableForms, ([id, name]) =>
+        `<option value="${escapeHTML(id)}">${escapeHTML(name)}</option>`
+      ).join("");
+      filter.value = availableForms.has(selectedFormId) ? selectedFormId : "all";
+
+      if (!customSubmissions.length) {
+        container.innerHTML = '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No submissions yet.</p>';
+        return;
+      }
+      const search = document.getElementById("report-search").value.trim().toLowerCase();
+      const filteredSubmissions = customSubmissions.filter(submission => {
+        const matchesForm = filter.value === "all" || submission.formId === filter.value;
+        const searchableText = `${submission.formName} ${submission.submittedBy} ${submission.station} ${JSON.stringify(submission.values)}`.toLowerCase();
+        return matchesForm && searchableText.includes(search);
+      });
+      if (!filteredSubmissions.length) {
+        container.innerHTML = '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No reports match these filters.</p>';
+        return;
+      }
+      container.innerHTML = filteredSubmissions.map(submission => {
+        const values = Object.entries(submission.values || {}).map(([label, value]) =>
+          `<div class="flex flex-col gap-1 border-t border-slate-800 pt-2 sm:flex-row sm:justify-between"><span class="text-slate-400">${escapeHTML(label)}</span><span class="text-white">${escapeHTML(value)}</span></div>`
+        ).join("");
+        return `<article class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div><h3 class="text-sm font-bold text-white">${escapeHTML(submission.formName)}</h3><p class="mt-1 text-[11px] text-slate-400">${escapeHTML(submission.submittedBy)} · ${escapeHTML(submission.station)} · ${escapeHTML(submission.submittedAt)}</p></div>
+            <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(submission.type)}</span>
+          </div>
+          <div class="space-y-2 text-xs">${values}</div>
+        </article>`;
+      }).join("");
+    }
+
+    function addWorkReportPhotos(section, files) {
+      Array.from(files).forEach(file => {
+        if (!file.type.startsWith("image/")) {
+          alert(`${file.name} is not an image.`);
+          return;
+        }
+        workReportPhotos[section].push({ name: file.name, file, preview: URL.createObjectURL(file) });
+      });
+      renderWorkReportPhotos(section);
+    }
+
+    function renderWorkReportPhotos(section) {
+      const container = document.getElementById(`work-report-${section}-preview`);
+      container.replaceChildren();
+      workReportPhotos[section].forEach((photo, index) => {
+        const item = document.createElement("div");
+        item.className = "relative overflow-hidden rounded-lg border border-slate-800";
+        const image = document.createElement("img");
+        image.className = "h-28 w-full object-cover";
+        image.alt = photo.name;
+        image.src = photo.preview;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "absolute right-1 top-1 rounded bg-black/80 px-2 py-1 text-xs text-white";
+        remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove ${photo.name}`);
+        remove.addEventListener("click", () => {
+          URL.revokeObjectURL(photo.preview);
+          workReportPhotos[section].splice(index, 1);
+          renderWorkReportPhotos(section);
+        });
+        item.append(image, remove);
+        container.appendChild(item);
+      });
+    }
+
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error(`Could not read image ${file.name}`));
+        };
+        image.src = objectUrl;
+      });
+    }
+
+    async function encodeReportPhoto(photo) {
+      const image = await loadImage(photo.file);
+      const maxDimension = 1600;
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+      return { name: photo.name.slice(0, 180), mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+    }
+
+    async function submitWorkReport(event) {
+      event.preventDefault();
+      if (!isContractor(currentUser.role)) {
+        alert("Only contractor accounts can submit work reports.");
+        return;
+      }
+      const submittingPin = currentUser.pin;
+      const button = document.getElementById("work-report-submit");
+      button.disabled = true;
+      button.textContent = "Preparing report...";
+      try {
+        const before = await Promise.all(workReportPhotos.before.map(encodeReportPhoto));
+        const after = await Promise.all(workReportPhotos.after.map(encodeReportPhoto));
+        if (!currentUser || currentUser.pin !== submittingPin) throw new Error("Your session changed. Sign in again before submitting.");
+        const reportId = `WR-${crypto.randomUUID()}`;
+        await postData({
+          action: "createWorkReport",
+          pin: submittingPin,
+          report: {
+            id: reportId,
+            workName: document.getElementById("work-report-name").value.trim(),
+            description: document.getElementById("work-report-description").value.trim(),
+            comment: document.getElementById("work-report-comment").value.trim(),
+            before,
+            after
+          }
+        });
+        button.textContent = "Verifying...";
+        const data = await getAPI("getWorkReports", { pin: submittingPin });
+        if (!currentUser || currentUser.pin !== submittingPin) return;
+        workReports = Array.isArray(data.reports) ? data.reports : [];
+        if (!workReports.some(report => report.id === reportId)) throw new Error("The server did not confirm that the report was saved");
+        document.getElementById("work-report-form").reset();
+        ["before", "after"].forEach(section => {
+          workReportPhotos[section].forEach(photo => URL.revokeObjectURL(photo.preview));
+          workReportPhotos[section] = [];
+          document.getElementById(`work-report-${section}-preview`).replaceChildren();
+        });
+        renderWorkReportList();
+        alert("Work report saved.");
+      } catch (error) {
+        alert(`Could not save the work report: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Submit work report";
+      }
+    }
+
+    async function loadWorkReports() {
+      if (!currentUser || (!hasManagementAccess(currentUser.role) && !isContractor(currentUser.role))) return;
+      const loadingPin = currentUser.pin;
+      const container = hasManagementAccess(currentUser.role)
+        ? document.getElementById("manager-work-reports")
+        : document.getElementById("contractor-work-report-list");
+      container.innerHTML = '<p class="text-xs text-slate-500">Loading work reports...</p>';
+      try {
+        const data = await getAPI("getWorkReports", { pin: loadingPin });
+        if (!currentUser || currentUser.pin !== loadingPin) return;
+        workReports = Array.isArray(data.reports) ? data.reports : [];
+        renderWorkReportList();
+      } catch (error) {
+        if (!currentUser || currentUser.pin !== loadingPin) return;
+        container.innerHTML = `<p class="text-xs text-rose-400">Could not load work reports: ${escapeHTML(error.message)}</p>`;
+      }
+    }
+
+    function renderWorkReportList() {
+      const container = hasManagementAccess(currentUser.role)
+        ? document.getElementById("manager-work-reports")
+        : document.getElementById("contractor-work-report-list");
+      if (!workReports.length) {
+        container.innerHTML = '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No work reports yet.</p>';
+        return;
+      }
+      container.innerHTML = workReports.map(report => `
+        <article class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <div>
+            <h3 class="text-sm font-bold text-white">${escapeHTML(report.workName)}</h3>
+            <p class="mt-1 text-[11px] text-slate-400">${escapeHTML(report.contractorName)} · ${escapeHTML(report.createdAt)} · ${Number(report.beforeCount) || 0} before / ${Number(report.afterCount) || 0} after photos</p>
+          </div>
+          <button data-report-print="${escapeHTML(report.id)}" class="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white"><i class="fa-solid fa-file-pdf mr-1"></i> View / Save PDF</button>
+        </article>`).join("");
+    }
+
+    async function printWorkReport(reportId) {
+      const requestingPin = currentUser.pin;
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        alert("Allow pop-ups for this site to view or print the report.");
+        return;
+      }
+      printWindow.document.write("<p>Loading work report...</p>");
+      try {
+        const data = await getAPI("getWorkReport", { pin: requestingPin, reportId });
+        if (!currentUser || currentUser.pin !== requestingPin) throw new Error("Your session changed. Sign in again to view reports.");
+        const report = data.report;
+        const renderPhotos = photos => photos.length
+          ? `<div class="photos">${photos.map(photo => `<figure><img src="data:${escapeHTML(photo.mimeType)};base64,${photo.data}" alt="${escapeHTML(photo.name)}"><figcaption>${escapeHTML(photo.name)}</figcaption></figure>`).join("")}</div>`
+          : "<p>No photos attached.</p>";
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHTML(report.workName)}</title><style>
+          body{font:14px Arial,sans-serif;color:#1f2937;margin:32px}h1{font-size:24px}h2{font-size:17px;margin-top:28px;border-bottom:1px solid #ccc;padding-bottom:6px}.meta{color:#555;line-height:1.7}.description{white-space:pre-wrap}.photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.photos figure{margin:0;break-inside:avoid}.photos img{width:100%;max-height:360px;object-fit:contain;border:1px solid #ddd}.photos figcaption{font-size:11px;color:#555;margin-top:4px}.comment{white-space:pre-wrap}@media print{body{margin:15mm}.photos img{max-height:320px}}
+          </style></head><body>
+          <h1>${escapeHTML(report.workName)}</h1>
+          <div class="meta"><b>Contractor:</b> ${escapeHTML(report.contractorName)}<br><b>Station:</b> ${escapeHTML(report.station)}<br><b>Date:</b> ${escapeHTML(report.createdAt)}</div>
+          <h2>Description</h2><div class="description">${escapeHTML(report.description)}</div>
+          <h2>Before photos</h2>${renderPhotos(report.before || [])}
+          <h2>After photos</h2>${renderPhotos(report.after || [])}
+          <h2>Comment</h2><div class="comment">${escapeHTML(report.comment || "—")}</div>
+          <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
+          </body></html>`;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } catch (error) {
+        printWindow.close();
+        alert(`Could not open work report: ${error.message}`);
+      }
+    }
+
+    async function postData(body) {
+      await fetch(API_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(body)
+      });
     }
 
     function renderManagementTasks() {
       const container = document.getElementById('m-tasks-container');
       container.innerHTML = "";
+      if (!allTasks.length) {
+        container.innerHTML = '<p class="col-span-full rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No tasks yet.</p>';
+        return;
+      }
       allTasks.forEach(t => {
         const isDelayed = t.status === "Delayed";
         container.innerHTML += `
           <div class="bg-slate-900 border ${isDelayed ? 'border-rose-500 bg-rose-950/10' : 'border-slate-800'} p-4 rounded-xl space-y-2">
             <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">${t.station}</span>
-              <span class="text-[10px] font-bold ${isDelayed ? 'text-rose-400' : 'text-slate-400'}">${t.status}</span>
+              <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">${escapeHTML(t.station)}</span>
+              <span class="text-[10px] font-bold ${isDelayed ? 'text-rose-400' : 'text-slate-400'}">${escapeHTML(t.status)}</span>
             </div>
-            <h4 class="text-xs font-bold text-white">${t.title}</h4>
-            <div class="text-[11px] text-slate-400">Assigned: ${t.assigned}</div>
-            ${isDelayed ? `<div class="bg-rose-950/40 border border-rose-800/60 p-2 rounded text-[11px] text-rose-300"><b>Reason:</b> ${t.delayReason}</div>` : ''}
+            <h4 class="text-xs font-bold text-white">${escapeHTML(t.title)}</h4>
+            <div class="text-[11px] text-slate-400">Assigned: ${escapeHTML(t.assigned)}</div>
+            ${isDelayed ? `<div class="bg-rose-950/40 border border-rose-800/60 p-2 rounded text-[11px] text-rose-300"><b>Reason:</b> ${escapeHTML(t.delayReason)}</div>` : ''}
+            <button data-task-delete="${escapeHTML(t.id)}" class="rounded bg-rose-950/60 px-3 py-1.5 text-[11px] font-bold text-rose-300">Delete task</button>
           </div>
         `;
       });
@@ -266,18 +880,18 @@
         container.innerHTML += `
           <div class="bg-slate-900 border ${isDelayed ? 'border-rose-500 bg-rose-950/10' : 'border-slate-800'} p-4 rounded-xl space-y-3">
             <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold text-slate-400">${t.id} - ${t.station}</span>
-              <span class="text-[10px] font-bold ${isDone ? 'text-emerald-400' : (isDelayed ? 'text-rose-400' : 'text-amber-400')}">${t.status}</span>
+              <span class="text-[10px] font-bold text-slate-400">${escapeHTML(t.id)} - ${escapeHTML(t.station)}</span>
+              <span class="text-[10px] font-bold ${isDone ? 'text-emerald-400' : (isDelayed ? 'text-rose-400' : 'text-amber-400')}">${escapeHTML(t.status)}</span>
             </div>
-            <h4 class="text-sm font-bold text-white">${t.title}</h4>
+            <h4 class="text-sm font-bold text-white">${escapeHTML(t.title)}</h4>
             
-            ${isDelayed ? `<div class="text-[11px] text-rose-300 bg-rose-950/40 p-2 rounded"><b>Delay:</b> ${t.delayReason}</div>` : ''}
+            ${isDelayed ? `<div class="text-[11px] text-rose-300 bg-rose-950/40 p-2 rounded"><b>Delay:</b> ${escapeHTML(t.delayReason)}</div>` : ''}
 
             <div class="flex gap-2 pt-2 border-t border-slate-800">
-              <button onclick="updateTask('${t.id}', 'Completed')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2 rounded-lg font-bold">
+              <button data-task-action="complete" data-task-id="${escapeHTML(t.id)}" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2 rounded-lg font-bold">
                 <i class="fa-solid fa-check mr-1"></i> Done
               </button>
-              <button onclick="openDelayModal('${t.id}', '${t.title}')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-lg font-bold">
+              <button data-task-action="delay" data-task-id="${escapeHTML(t.id)}" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-lg font-bold">
                 <i class="fa-solid fa-triangle-exclamation mr-1"></i> Delay
               </button>
             </div>
@@ -288,39 +902,55 @@
 
     async function submitNewTask() {
       const station = document.getElementById('task-station').value;
-      const title = document.getElementById('task-title').value;
-      const assigned = document.getElementById('task-assigned').value || "Shift Operator";
+      const title = document.getElementById('task-title').value.trim();
+      const assigned = document.getElementById('task-assigned').value.trim() || "Shift Operator";
 
       if (!title) return alert("Please enter task title");
 
-      const body = { action: "createTask", station, title, priority: "High", assigned, deadline: "Today" };
-      allTasks.push({ id: "TSK-" + Math.floor(1000 + Math.random() * 9000), ...body, status: "Pending" });
+      const taskId = "TSK-" + crypto.randomUUID();
+      const body = { action: "createTask", pin: currentUser.pin, taskId, station, title, priority: "High", assigned, deadline: "Today" };
+      allTasks.push({ id: taskId, ...body, status: "Pending" });
       renderManagementTasks();
       document.getElementById('task-title').value = "";
-
-      await fetch(API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+      try {
+        await postData(body);
+        const savedData = await getAPI("getData", { pin: currentUser.pin });
+        if (!savedData.tasks.some(savedTask => String(savedTask.id) === taskId)) {
+          throw new Error("The server did not confirm the task");
+        }
+      } catch (error) {
+        allTasks = allTasks.filter(task => task.id !== taskId);
+        renderManagementTasks();
+        alert(`Could not dispatch the task: ${error.message}`);
+      }
     }
 
     async function updateTask(taskId, status, reason = "") {
       const task = allTasks.find(t => t.id === taskId);
+      const previousState = task ? { status: task.status, delayReason: task.delayReason } : null;
       if (task) {
         task.status = status;
         task.delayReason = reason;
       }
-      if (currentUser.role === 'Worker') renderWorkerTasks();
-      if (currentUser.role === 'Management') renderManagementTasks();
+      if (hasManagementAccess(currentUser.role)) renderManagementTasks();
+      else renderWorkerTasks();
 
-      await fetch(API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "updateTask", taskId, status, delayReason: reason })
-      });
+      try {
+        await postData({ action: "updateTask", pin: currentUser.pin, taskId, status, delayReason: reason });
+        const savedData = await getAPI("getData", { pin: currentUser.pin });
+        const savedTask = savedData.tasks.find(item => String(item.id) === String(taskId));
+        if (!savedTask || savedTask.status !== status) {
+          throw new Error("The server did not confirm the task update");
+        }
+      } catch (error) {
+        if (task && previousState) {
+          task.status = previousState.status;
+          task.delayReason = previousState.delayReason;
+        }
+        if (hasManagementAccess(currentUser.role)) renderManagementTasks();
+        else renderWorkerTasks();
+        alert(`Could not update the task: ${error.message}`);
+      }
     }
 
     function openDelayModal(id, title) {
@@ -338,6 +968,68 @@
       updateTask(activeDelayedTaskId, "Delayed", reason);
       closeDelayModal();
     }
+
+    async function deleteTask(taskId) {
+      if (!hasManagementAccess(currentUser.role)) return;
+      const task = allTasks.find(item => String(item.id) === String(taskId));
+      if (!task || !confirm(`Delete task "${task.title}"? This cannot be undone.`)) return;
+      try {
+        await postData({ action: "deleteTask", pin: currentUser.pin, taskId });
+        const savedData = await getAPI("getData", { pin: currentUser.pin });
+        if (savedData.tasks.some(item => String(item.id) === String(taskId))) {
+          throw new Error("The server did not confirm task deletion");
+        }
+        allTasks = savedData.tasks;
+        renderManagementTasks();
+      } catch (error) {
+        alert(`Could not delete task: ${error.message}`);
+      }
+    }
+
+    document.getElementById("builder-add-field").addEventListener("click", () => addBuilderField());
+    document.getElementById("form-builder").addEventListener("submit", createCustomForm);
+    document.getElementById("work-report-form").addEventListener("submit", submitWorkReport);
+    document.getElementById("work-report-before").addEventListener("change", event => {
+      addWorkReportPhotos("before", event.target.files);
+      event.target.value = "";
+    });
+    document.getElementById("work-report-after").addEventListener("change", event => {
+      addWorkReportPhotos("after", event.target.files);
+      event.target.value = "";
+    });
+    document.getElementById("builder-fields").addEventListener("keydown", event => {
+      if (event.key === "Enter" && event.target.tagName === "INPUT") event.preventDefault();
+    });
+    document.getElementById("report-form-filter").addEventListener("change", renderSubmissions);
+    document.getElementById("report-search").addEventListener("input", renderSubmissions);
+    document.getElementById("m-tasks-container").addEventListener("click", event => {
+      const deleteButton = event.target.closest("button[data-task-delete]");
+      if (deleteButton) {
+        deleteTask(deleteButton.dataset.taskDelete);
+        return;
+      }
+      const button = event.target.closest("button[data-task-action]");
+      if (!button) return;
+      const task = allTasks.find(item => String(item.id) === button.dataset.taskId);
+      if (!task) return;
+      if (button.dataset.taskAction === "complete") updateTask(task.id, "Completed");
+      if (button.dataset.taskAction === "delay") openDelayModal(task.id, task.title);
+    });
+    [document.getElementById("manager-work-reports"), document.getElementById("contractor-work-report-list")].forEach(container => {
+      container.addEventListener("click", event => {
+        const button = event.target.closest("button[data-report-print]");
+        if (button) printWorkReport(button.dataset.reportPrint);
+      });
+    });
+    document.getElementById("w-tasks-container").addEventListener("click", event => {
+      const button = event.target.closest("button[data-task-action]");
+      if (!button) return;
+      const task = allTasks.find(item => String(item.id) === button.dataset.taskId);
+      if (!task) return;
+      if (button.dataset.taskAction === "complete") updateTask(task.id, "Completed");
+      if (button.dataset.taskAction === "delay") openDelayModal(task.id, task.title);
+    });
+    addBuilderField();
   </script>
 </body>
 </html>
