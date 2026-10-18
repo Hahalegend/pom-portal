@@ -38,10 +38,29 @@ function doGet(e) {
     });
   }
 
+  if (action === "getSubmissionPhoto") {
+    const user = findUser(ss, params.pin);
+    if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+    const submission = readSubmissions(ss).find(item => item.id === String(params.submissionId || ""));
+    if (!submission || (!hasManagementAccess(user.role) && submission.submittedBy !== user.name)) {
+      return sendJSON({ success: false, message: "Submission not found or access denied" });
+    }
+    const photo = submission.values[String(params.field || "")];
+    if (!photo || !photo.id) return sendJSON({ success: false, message: "Submission picture not found" });
+    const file = DriveApp.getFileById(photo.id);
+    return sendJSON({
+      photo: {
+        name: photo.name,
+        mimeType: photo.mimeType,
+        data: Utilities.base64Encode(file.getBlob().getBytes())
+      }
+    });
+  }
+
   if (action === "getStations") {
     const user = findUser(ss, params.pin);
-    if (!user || !hasManagementAccess(user.role)) {
-      return sendJSON({ success: false, message: "Management access is required to view stations" });
+    if (!user || (!hasManagementAccess(user.role) && !isContractor(user.role))) {
+      return sendJSON({ success: false, message: "Contractor or management access is required to view stations" });
     }
     return sendJSON({ stations: readStations(ss) });
   }
@@ -81,7 +100,11 @@ function doGet(e) {
     return sendJSON({
       tasks: isContractor(user.role) ? [] : tasks,
       kpi: isContractor(user.role) ? [] : (kpiData[1] || []),
-      forms: isContractor(user.role) ? [] : readForms(ss)
+      forms: isContractor(user.role) ? [] : readForms(ss).filter(form =>
+        hasManagementAccess(user.role)
+        || form.station === "All stations"
+        || form.station.toLowerCase() === String(user.station || "").trim().toLowerCase()
+      )
     });
   }
 
@@ -125,18 +148,18 @@ function doGet(e) {
 
   if (action === "getWorkReports") {
     const user = findUser(ss, params.pin);
-    if (!user || (!hasManagementAccess(user.role) && !isContractor(user.role))) {
-      return sendJSON({ success: false, message: "Contractor or management access is required" });
+    if (!user || !hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required; contractors must use company sign-in" });
     }
-    return sendJSON({ reports: readWorkReports(ss, user, params.pin) });
+    return sendJSON({ reports: readWorkReports(ss, user, null) });
   }
 
   if (action === "getWorkReport") {
     const user = findUser(ss, params.pin);
-    if (!user || (!hasManagementAccess(user.role) && !isContractor(user.role))) {
-      return sendJSON({ success: false, message: "Contractor or management access is required" });
+    if (!user || !hasManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Management access is required; contractors must use company sign-in" });
     }
-    const report = readWorkReport(ss, String(params.reportId || ""), user, params.pin, true);
+    const report = readWorkReport(ss, String(params.reportId || ""), user, true, null);
     return report
       ? sendJSON({ report: report })
       : sendJSON({ success: false, message: "Work report not found or access denied" });
@@ -153,6 +176,32 @@ function doPost(e) {
   }
   const user = findUser(ss, body.pin);
   if (!user) return sendJSON({ success: false, message: "A valid PIN is required" });
+
+  if (body.action === "getContractorWorkReports" || body.action === "getContractorWorkReport") {
+    if (!isContractor(user.role)) {
+      return sendJSON({ success: false, message: "Only contractor accounts can access company work reports" });
+    }
+    const company = verifyContractorCompany(ss, body.companyName, body.companyId);
+    if (!company) {
+      return sendJSON({ success: false, message: "Company name or unique ID is incorrect. Sign in to your company first." });
+    }
+    if (body.action === "getContractorWorkReports") {
+      return sendJSON({ reports: readWorkReports(ss, user, {
+        name: company.name,
+        id: String(body.companyId).trim()
+      }) });
+    }
+    const report = readWorkReport(
+      ss,
+      String(body.reportId || ""),
+      user,
+      true,
+      { name: company.name, id: String(body.companyId).trim() }
+    );
+    return report
+      ? sendJSON({ report: report })
+      : sendJSON({ success: false, message: "Work report not found or access denied" });
+  }
 
   if (body.action === "saveMetric" || body.action === "saveOer") {
     if (!hasManagementAccess(user.role)) {
@@ -468,7 +517,7 @@ function doPost(e) {
     const formSheet = getFormSheet(ss);
     let form;
     try {
-      form = validateForm(body.form);
+      form = validateForm(body.form, ss);
     } catch (error) {
       return sendJSON({ success: false, message: error.message });
     }
@@ -478,29 +527,49 @@ function doPost(e) {
     if (existingIds.includes(form.id)) {
       return sendJSON({ success: false, message: "A screen with this ID already exists" });
     }
-    formSheet.appendRow([form.id, form.name, form.type, JSON.stringify(form.fields), new Date()]);
+    formSheet.appendRow([form.id, form.name, form.type, JSON.stringify(form.fields), new Date(), form.station]);
     return sendJSON({ success: true, form: form });
   }
 
   if (body.action === "submitForm") {
     const form = readForms(ss).find(item => item.id === String(body.formId || ""));
     if (!form) return sendJSON({ success: false, message: "Screen not found" });
+    if (!hasManagementAccess(user.role) && !isWorkerRole(user.role)) {
+      return sendJSON({ success: false, message: "Not authorized to submit forms" });
+    }
+    if (!hasManagementAccess(user.role) && form.station !== "All stations"
+      && form.station.toLowerCase() !== String(user.station || "").trim().toLowerCase()) {
+      return sendJSON({ success: false, message: "This form is not assigned to your station" });
+    }
+    const submissionId = String(body.submissionId || Utilities.getUuid()).trim();
+    if (!submissionId || submissionId.length > 100) {
+      return sendJSON({ success: false, message: "Invalid submission ID" });
+    }
     let submittedValues;
     try {
       submittedValues = validateSubmission(form, body.values);
     } catch (error) {
       return sendJSON({ success: false, message: error.message });
     }
-    if (!hasManagementAccess(user.role) && !isWorkerRole(user.role)) {
-      return sendJSON({ success: false, message: "Not authorized to submit forms" });
+    const savedPhotos = [];
+    try {
+      form.fields.filter(field => field.type === "photo").forEach((field, index) => {
+        const candidate = submittedValues[field.label];
+        if (!candidate) return;
+        const photo = saveTaskPhoto(candidate, submissionId + "-" + index);
+        savedPhotos.push(photo);
+        submittedValues[field.label] = photo;
+      });
+      getSubmissionSheet(ss).appendRow([
+        submissionId, form.id, form.name, form.type,
+        user.name.slice(0, 120),
+        user.station.slice(0, 120),
+        new Date(), JSON.stringify(submittedValues)
+      ]);
+    } catch (error) {
+      savedPhotos.forEach(trashTaskPhoto);
+      return sendJSON({ success: false, message: "Could not save the submission: " + error.message });
     }
-    const submissionSheet = getSubmissionSheet(ss);
-    submissionSheet.appendRow([
-      String(body.submissionId || Utilities.getUuid()), form.id, form.name, form.type,
-      user.name.slice(0, 120),
-      user.station.slice(0, 120),
-      new Date(), JSON.stringify(submittedValues)
-    ]);
     return sendJSON({ success: true });
   }
 
@@ -508,10 +577,14 @@ function doPost(e) {
     if (!isContractor(user.role)) {
       return sendJSON({ success: false, message: "Only contractor accounts can submit work reports" });
     }
+    const company = verifyContractorCompany(ss, body.companyName, body.companyId);
+    if (!company) {
+      return sendJSON({ success: false, message: "Sign in with your registered company name and unique ID before submitting" });
+    }
     let report;
     const uploadedPhotos = [];
     try {
-      report = validateWorkReport(body.report);
+      report = validateWorkReport(body.report, ss);
       const reportSheet = getWorkReportSheet(ss);
       const exists = reportSheet.getLastRow() > 1
         && reportSheet.getRange(2, 1, reportSheet.getLastRow() - 1, 1).getValues().flat().includes(report.id);
@@ -522,14 +595,57 @@ function doPost(e) {
       report.after = saveWorkReportPhotos(report.after, "after", report.id);
       uploadedPhotos.push.apply(uploadedPhotos, report.after);
       reportSheet.appendRow([
-        report.id, report.workName, report.description, report.comment, user.name,
-        user.station, hashPin(body.pin), new Date(), JSON.stringify(report.before), JSON.stringify(report.after)
+        report.id, report.workName, report.description, report.comment, report.contractorName,
+        report.station, hashPin(body.pin), new Date(), JSON.stringify(report.before), JSON.stringify(report.after),
+        hashContractorCompany(company.name, body.companyId)
       ]);
     } catch (error) {
       trashWorkReportPhotos(uploadedPhotos);
       return sendJSON({ success: false, message: error.message });
     }
     return sendJSON({ success: true, reportId: report.id });
+  }
+
+  if (body.action === "registerContractorCompany" || body.action === "verifyContractorCompany") {
+    if (!isContractor(user.role)) {
+      return sendJSON({ success: false, message: "Only contractor accounts can access company work reports" });
+    }
+    let credentials;
+    try {
+      credentials = validateContractorCompanyCredentials(body.companyName, body.companyId);
+    } catch (error) {
+      return sendJSON({ success: false, message: error.message });
+    }
+
+    if (body.action === "verifyContractorCompany") {
+      const company = verifyContractorCompany(ss, credentials.name, credentials.id);
+      return company
+        ? sendJSON({ success: true, companyName: company.name })
+        : sendJSON({ success: false, message: "Company name or unique ID is incorrect. Register your company if this is your first visit." });
+    }
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Company registration is busy. Please try again." });
+    }
+    try {
+      const sheet = getContractorCompanySheet(ss);
+      const rows = sheet.getLastRow() > 1
+        ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues()
+        : [];
+      const normalizedName = normalizeCompanyName(credentials.name);
+      const companyIdHash = hashPin("contractor-company-id:" + credentials.id);
+      if (rows.some(row =>
+        normalizeCompanyName(row[0]) === normalizedName
+        || String(row[1]) === companyIdHash
+      )) {
+        return sendJSON({ success: false, message: "That company name or unique ID is already registered. Sign in or choose different details." });
+      }
+      sheet.appendRow([credentials.name, companyIdHash, new Date()]);
+      return sendJSON({ success: true, companyName: credentials.name });
+    } finally {
+      lock.releaseLock();
+    }
   }
 
   return sendJSON({ success: false, message: "Unknown action" });
@@ -617,7 +733,9 @@ function getFormSheet(ss) {
     sheet = ss.insertSheet("Portal_Forms");
   }
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Form ID", "Name", "Type", "Fields JSON", "Created At"]);
+    sheet.appendRow(["Form ID", "Name", "Type", "Fields JSON", "Created At", "Station"]);
+  } else if (!String(sheet.getRange(1, 6).getValue() || "").trim()) {
+    sheet.getRange(1, 6).setValue("Station");
   }
   return sheet;
 }
@@ -694,11 +812,12 @@ function getSubmissionSheet(ss) {
 function readForms(ss) {
   const sheet = getFormSheet(ss);
   if (sheet.getLastRow() <= 1) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues().map(row => ({
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(6, sheet.getLastColumn())).getValues().map(row => ({
     id: String(row[0]),
     name: String(row[1]),
     type: String(row[2]),
-    fields: JSON.parse(String(row[3] || "[]"))
+    fields: JSON.parse(String(row[3] || "[]")),
+    station: String(row[5] || "All stations")
   }));
 }
 
@@ -725,10 +844,56 @@ function getWorkReportSheet(ss) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow([
       "Report ID", "Work Name", "Description", "Comment", "Contractor",
-      "Station", "Owner PIN Hash", "Created At", "Before Photos JSON", "After Photos JSON"
+      "Station", "Owner PIN Hash", "Created At", "Before Photos JSON", "After Photos JSON", "Company ID Hash"
     ]);
+  } else if (!String(sheet.getRange(1, 11).getValue() || "").trim()) {
+    sheet.getRange(1, 11).setValue("Company ID Hash");
   }
   return sheet;
+}
+
+function getContractorCompanySheet(ss) {
+  let sheet = ss.getSheetByName("Contractor_Companies");
+  if (!sheet) sheet = ss.insertSheet("Contractor_Companies");
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Company Name", "Company ID Hash", "Registered At"]);
+  }
+  return sheet;
+}
+
+function normalizeCompanyName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function validateContractorCompanyCredentials(name, id) {
+  const normalizedName = String(name || "").trim().replace(/\s+/g, " ");
+  const normalizedId = String(id || "").trim();
+  if (!normalizedName || normalizedName.length > 120) {
+    throw new Error("Enter a company name of at most 120 characters");
+  }
+  if (normalizedId.length < 12 || normalizedId.length > 100) {
+    throw new Error("Company unique ID must be between 12 and 100 characters");
+  }
+  return { name: normalizedName, id: normalizedId };
+}
+
+function verifyContractorCompany(ss, name, id) {
+  const companyName = String(name || "").trim().replace(/\s+/g, " ");
+  const companyId = String(id || "").trim();
+  if (!companyName || companyName.length > 120 || companyId.length < 12 || companyId.length > 100) return null;
+  const sheet = getContractorCompanySheet(ss);
+  if (sheet.getLastRow() <= 1) return null;
+  const normalizedName = normalizeCompanyName(companyName);
+  const idHash = hashPin("contractor-company-id:" + companyId);
+  const match = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues().find(row =>
+    normalizeCompanyName(row[0]) === normalizedName && String(row[1]) === idHash
+  );
+  return match ? { name: String(match[0]) } : null;
+}
+
+function hashContractorCompany(name, id) {
+  const credentials = validateContractorCompanyCredentials(name, id);
+  return hashPin("contractor-company-report:" + normalizeCompanyName(credentials.name) + ":" + credentials.id);
 }
 
 function getWorkReportFolder() {
@@ -780,13 +945,19 @@ function trashTaskPhoto(photo) {
   }
 }
 
-function validateWorkReport(candidate) {
+function validateWorkReport(candidate, ss) {
   if (!candidate || typeof candidate !== "object") throw new Error("A work report is required");
   const id = String(candidate.id || "").trim();
+  const contractorName = String(candidate.contractorName || "").trim();
+  const station = String(candidate.station || "").trim();
   const workName = String(candidate.workName || "").trim();
   const description = String(candidate.description || "").trim();
   const comment = String(candidate.comment || "").trim();
   if (!id || id.length > 100) throw new Error("Invalid work report ID");
+  if (!contractorName || contractorName.length > 120) throw new Error("Contractor name is required and must be at most 120 characters");
+  if (!station || !readStations(ss).some(item => item.toLowerCase() === station.toLowerCase())) {
+    throw new Error("Choose a valid station for this work report");
+  }
   if (!workName || workName.length > 160) throw new Error("Work name is required and must be at most 160 characters");
   if (!description || description.length > 5000) throw new Error("Description is required and must be at most 5000 characters");
   if (comment.length > 3000) throw new Error("Comment must be at most 3000 characters");
@@ -795,6 +966,8 @@ function validateWorkReport(candidate) {
   }
   return {
     id: id,
+    contractorName: contractorName,
+    station: station,
     workName: workName,
     description: description,
     comment: comment,
@@ -842,12 +1015,15 @@ function trashWorkReportPhotos(photos) {
   });
 }
 
-function readWorkReports(ss, user, pin) {
+function readWorkReports(ss, user, company) {
   const sheet = getWorkReportSheet(ss);
   if (sheet.getLastRow() <= 1) return [];
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
-  const ownerHash = hashPin(pin);
-  return rows.filter(row => hasManagementAccess(user.role) || String(row[6]) === ownerHash)
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
+  const companyHash = company ? hashContractorCompany(company.name, company.id) : "";
+  return rows.filter(row => hasManagementAccess(user.role) || (
+    companyHash
+    && String(row[10]) === companyHash
+  ))
     .reverse()
     .map(row => ({
       id: String(row[0]),
@@ -860,13 +1036,16 @@ function readWorkReports(ss, user, pin) {
     }));
 }
 
-function readWorkReport(ss, reportId, user, pin, includePhotos) {
+function readWorkReport(ss, reportId, user, includePhotos, company) {
   const sheet = getWorkReportSheet(ss);
   if (sheet.getLastRow() <= 1) return null;
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
   const row = rows.find(item => String(item[0]) === reportId);
   if (!row) return null;
-  if (!hasManagementAccess(user.role) && String(row[6]) !== hashPin(pin)) return null;
+  if (!hasManagementAccess(user.role) && (
+    !company
+    || String(row[10]) !== hashContractorCompany(company.name, company.id)
+  )) return null;
 
   const report = {
     id: String(row[0]),
@@ -895,18 +1074,22 @@ function readWorkReportPhotos(photos) {
   });
 }
 
-function validateForm(candidate) {
-  if (!candidate || typeof candidate !== "object") throw new Error("A screen definition is required");
+function validateForm(candidate, ss) {
+  if (!candidate || typeof candidate !== "object") throw new Error("A form definition is required");
   const name = String(candidate.name || "").trim();
   const id = String(candidate.id || "").trim();
   const type = String(candidate.type || "");
-  if (!id || id.length > 100 || !name || name.length > 80) throw new Error("Screen ID and a name of at most 80 characters are required");
+  if (!id || id.length > 100 || !name || name.length > 80) throw new Error("Form ID and a name of at most 80 characters are required");
   if (type !== "Operation" && type !== "Report") throw new Error("Screen type must be Operation or Report");
+  const station = String(candidate.station || "All stations").trim();
+  if (station !== "All stations" && !readStations(ss).some(item => item.toLowerCase() === station.toLowerCase())) {
+    throw new Error("Choose a valid station for this form");
+  }
   if (!Array.isArray(candidate.fields) || candidate.fields.length < 1 || candidate.fields.length > 30) {
     throw new Error("A screen must have between 1 and 30 fields");
   }
 
-  const allowedTypes = ["text", "number", "date", "textarea", "checkbox"];
+  const allowedTypes = ["text", "number", "date", "textarea", "checkbox", "photo"];
   const seenLabels = new Set();
   const fields = candidate.fields.map(field => {
     const label = String(field.label || "").trim();
@@ -919,7 +1102,7 @@ function validateForm(candidate) {
     seenLabels.add(normalizedLabel);
     return { label: label, type: fieldType, required: field.required === true };
   });
-  return { id: id, name: name, type: type, fields: fields };
+  return { id: id, name: name, type: type, station: station, fields: fields };
 }
 
 function validateSubmission(form, values) {
@@ -934,6 +1117,10 @@ function validateSubmission(form, values) {
     }
     if (field.type === "checkbox") {
       normalized[field.label] = value === true;
+      return;
+    }
+    if (field.type === "photo") {
+      normalized[field.label] = value ? validateTaskPhoto(value) : null;
       return;
     }
     const text = String(value === undefined || value === null ? "" : value);
