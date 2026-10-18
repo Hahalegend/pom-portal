@@ -100,6 +100,7 @@ function doGet(e) {
     return sendJSON({
       tasks: isContractor(user.role) ? [] : tasks,
       kpi: isContractor(user.role) ? [] : (kpiData[1] || []),
+      ffa: isContractor(user.role) ? null : getLatestKpiValue(ss, "ffa"),
       forms: isContractor(user.role) ? [] : readForms(ss).filter(form =>
         hasManagementAccess(user.role)
         || form.station === "All stations"
@@ -762,6 +763,7 @@ function getKpiMetric(key) {
     oer: { key: "oer", label: "OER", sheetName: "OER_History", unit: "%", max: 100 },
     ker: { key: "ker", label: "KER", sheetName: "KER_History", unit: "%", max: 100 },
     ffb: { key: "ffb", label: "FFB Process", sheetName: "FFB_History", unit: "MT", max: 1000000000 },
+    ffa: { key: "ffa", label: "FFA Process", sheetName: "FFA_History", unit: "%", max: 100 },
     boiler: { key: "boiler", label: "Boiler Pressure", sheetName: "Boiler_History", unit: "Bar", max: 1000000000 }
   };
   return metrics[String(key || "").trim().toLowerCase()] || null;
@@ -787,6 +789,15 @@ function readKpiHistory(sheet) {
     }))
     .filter(record => record.date && Number.isFinite(record.value) && record.value >= 0)
     .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function getLatestKpiValue(ss, key) {
+  const metric = getKpiMetric(key);
+  if (!metric) return null;
+  const sheet = ss.getSheetByName(metric.sheetName);
+  if (!sheet) return null;
+  const records = readKpiHistory(sheet);
+  return records.length ? records[records.length - 1].value : null;
 }
 
 function readStations(ss) {

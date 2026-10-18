@@ -63,10 +63,16 @@
 
     <section id="management-overview" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <button type="button" onclick="openMetricSection('ffb')" aria-label="Open FFB Process trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-white/50 focus:outline-none focus:ring-2 focus:ring-white">
-        <span class="text-[10px] text-slate-400 uppercase font-bold">FFB Process</span>
-        <div class="text-xl font-black text-white mt-1"><span id="m-ffb">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
-      </button>
+      <div class="space-y-3">
+        <button type="button" onclick="openMetricSection('ffb')" aria-label="Open FFB Process trends" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-white/50 focus:outline-none focus:ring-2 focus:ring-white">
+          <span class="text-[10px] text-slate-400 uppercase font-bold">FFB Process</span>
+          <div class="text-xl font-black text-white mt-1"><span id="m-ffb">--</span> <span class="text-xs font-normal text-slate-400">MT</span></div>
+        </button>
+        <button type="button" onclick="openMetricSection('ffa')" aria-label="Open FFA Process trends" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-rose-500/60 focus:outline-none focus:ring-2 focus:ring-rose-500">
+          <span class="text-[10px] text-slate-400 uppercase font-bold">FFA Process</span>
+          <div class="text-xl font-black text-rose-400 mt-1"><span id="m-ffa">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
+        </button>
+      </div>
       <button type="button" onclick="openMetricSection('oer')" aria-label="Open OER trends" class="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left hover:border-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500">
         <span class="text-[10px] text-slate-400 uppercase font-bold">OER Rate</span>
         <div class="text-xl font-black text-amber-400 mt-1"><span id="m-oer">--</span> <span class="text-xs font-normal text-slate-400">%</span></div>
@@ -83,13 +89,18 @@
 
     <!-- Management Task Dispatcher -->
     <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
           <i class="fa-solid fa-plus text-amber-500"></i> Dispatch Station Job
         </h2>
-        <button id="toggle-station-create-button" type="button" aria-expanded="false" class="shrink-0 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">
-          <i class="fa-solid fa-plus mr-1"></i> Add station
-        </button>
+        <div class="flex shrink-0 items-center gap-2">
+          <button id="toggle-station-create-button" type="button" aria-expanded="false" class="rounded border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">
+            <i class="fa-solid fa-plus mr-1"></i> Add station
+          </button>
+          <button id="remove-station-button" type="button" class="rounded border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900">
+            <i class="fa-solid fa-trash mr-1"></i> Remove selected station
+          </button>
+        </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
         <div class="space-y-2 md:col-span-5">
@@ -99,11 +110,6 @@
               <option value="">Loading stations...</option>
             </select>
           </label>
-          <div class="flex justify-end">
-            <button id="remove-station-button" type="button" class="rounded border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900">
-              <i class="fa-solid fa-trash mr-1"></i> Remove selected station
-            </button>
-          </div>
           <div id="station-create-panel" class="hidden rounded-lg border border-slate-800 bg-slate-950/60 p-3">
             <div class="flex flex-col gap-2 sm:flex-row">
               <input id="new-station-name" type="text" maxlength="80" placeholder="New station name (e.g. Water Treatment)" aria-label="New station name" class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 p-2 text-xs text-white">
@@ -470,6 +476,7 @@
     let submittedWorkReportSearch = "";
     const KPI_METRICS = {
       ffb: { label: "FFB Process", title: "FFB Process performance", unit: "MT", max: 1000000000, valueId: "m-ffb", color: "#e2e8f0", increment: 1 },
+      ffa: { label: "FFA Process", title: "FFA Process performance", unit: "%", max: 100, valueId: "m-ffa", color: "#fb7185", increment: 0.01 },
       oer: { label: "OER", title: "OER performance trends", unit: "%", max: 100, valueId: "m-oer", color: "#fbbf24", increment: 0.01 },
       ker: { label: "KER", title: "KER performance trends", unit: "%", max: 100, valueId: "m-ker", color: "#38bdf8", increment: 0.01 },
       boiler: { label: "Boiler Pressure", title: "Boiler pressure trends", unit: "Bar", max: 1000000000, valueId: "m-boiler", color: "#34d399", increment: 0.01 }
@@ -661,6 +668,7 @@
           document.getElementById('m-ker').innerText = data.kpi[3] || '5.4';
           document.getElementById('m-boiler').innerText = data.kpi[4] || '28.0';
         }
+        document.getElementById("m-ffa").textContent = data.ffa == null ? "--" : String(data.ffa);
       } catch (e) {
         allTasks = [];
         customForms = [];
@@ -743,8 +751,13 @@
         if (!currentUser || currentUser.pin !== pin || activeMetric !== metric) return;
         if (!Array.isArray(data.records)) throw new Error("The server returned invalid KPI history");
         metricHistory = data.records;
-        const todayRecord = metricHistory.find(record => record.date === localDateString());
-        if (todayRecord) document.getElementById(KPI_METRICS[metric].valueId).textContent = todayRecord.value;
+        if (metric === "ffa") {
+          const latestRecord = metricHistory[metricHistory.length - 1];
+          document.getElementById(KPI_METRICS[metric].valueId).textContent = latestRecord ? latestRecord.value : "--";
+        } else {
+          const todayRecord = metricHistory.find(record => record.date === localDateString());
+          if (todayRecord) document.getElementById(KPI_METRICS[metric].valueId).textContent = todayRecord.value;
+        }
         renderMetricHistory();
       } catch (error) {
         chartList.replaceChildren();
@@ -887,7 +900,7 @@
         (!from || record.date >= from) && (!to || record.date <= to)
       );
       if (!filtered.length) {
-        chartList.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">No OER records match this date range.</p>';
+        chartList.innerHTML = `<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">No ${escapeHTML(KPI_METRICS[activeMetric].label)} records match this date range.</p>`;
         return;
       }
       chartList.innerHTML = selected.map(period => {
@@ -2420,7 +2433,7 @@
       const select = document.getElementById("task-station");
       const station = select.value;
       if (!station) return;
-      if (!confirm(`Remove "${station}" from the station list? Existing tasks and account assignments will not change.`)) return;
+      if (!confirm(`Warning: You are about to remove "${station}" from the station list. It will no longer be available for future dispatches, but existing tasks and account assignments will not change.\n\nDo you want to continue?`)) return;
       const button = document.getElementById("remove-station-button");
       button.disabled = true;
       try {
