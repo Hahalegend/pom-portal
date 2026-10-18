@@ -188,7 +188,7 @@
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-4">
         <div>
           <h2 class="text-sm font-bold text-white">Create a screen</h2>
-          <p class="mt-1 text-xs text-slate-400">Build an operation or report form for workers. Their submissions will appear in Reports.</p>
+          <p class="mt-1 text-xs text-slate-400">Build an operation or report form for workers and operators. Their submissions will appear in Reports.</p>
         </div>
         <form id="form-builder" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -259,6 +259,7 @@
         <input id="account-station" required maxlength="80" placeholder="Station" aria-label="Station" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
         <select id="account-role" aria-label="Account role" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
           <option value="Worker">Worker</option>
+          <option value="Operator">Operator</option>
           <option value="Contractor">Contractor</option>
           <option value="Manager">Manager</option>
           <option value="Management">Management</option>
@@ -831,7 +832,7 @@
 
     function renderAccounts() {
       const container = document.getElementById("manager-accounts-list");
-      const availableRoles = ["Worker", "Contractor", "Manager", "Management", "Executive", "Admin"];
+      const availableRoles = ["Worker", "Operator", "Contractor", "Manager", "Management", "Executive", "Admin"];
       if (!managedAccounts.length) {
         container.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No accounts found.</p>';
         return;

@@ -546,7 +546,7 @@ function hasAccountManagementAccess(role) {
 }
 
 function isSupportedAccountRole(role) {
-  return ["admin", "management", "manager", "executive", "worker", "contractor"]
+  return ["admin", "management", "manager", "executive", "worker", "operator", "contractor"]
     .includes(String(role || "").trim().toLowerCase());
 }
 
@@ -555,7 +555,8 @@ function isContractor(role) {
 }
 
 function isWorkerRole(role) {
-  return String(role || "").trim().toLowerCase() === "worker";
+  const normalized = String(role || "").trim().toLowerCase();
+  return normalized === "worker" || normalized === "operator";
 }
 
 function canViewTask(user, task) {
