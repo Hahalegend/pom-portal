@@ -357,6 +357,44 @@ function doPost(e) {
     }
   }
 
+  if (body.action === "updateAccountStation") {
+    if (!hasAccountManagementAccess(user.role)) {
+      return sendJSON({ success: false, message: "Manager access is required to update account stations" });
+    }
+    const accountId = Number(body.accountId);
+    const expectedName = String(body.expectedName || "");
+    const expectedStation = String(body.expectedStation || "");
+    const expectedRole = String(body.expectedRole || "");
+    const station = String(body.station || "").trim();
+    if (!Number.isInteger(accountId) || accountId < 2 || !expectedName || !station || station.length > 80) {
+      return sendJSON({ success: false, message: "Invalid account or station" });
+    }
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return sendJSON({ success: false, message: "Account changes are busy. Please try again." });
+    }
+    try {
+      if (!readStations(ss).some(savedStation => savedStation === station)) {
+        return sendJSON({ success: false, message: "Choose a station from the saved station list" });
+      }
+      const userSheet = ss.getSheetByName("Users");
+      if (!userSheet || accountId > userSheet.getLastRow()) {
+        return sendJSON({ success: false, message: "Account not found; refresh the account list and try again" });
+      }
+      const target = userSheet.getRange(accountId, 1, 1, 4).getValues()[0];
+      if (String(target[1]) !== expectedName || String(target[2]) !== expectedRole || String(target[3]) !== expectedStation) {
+        return sendJSON({ success: false, message: "Account changed; refresh the account list and try again" });
+      }
+      if (!isAccountStationApplicable(target[2])) {
+        return sendJSON({ success: false, message: "Station assignment is not applicable to this account role" });
+      }
+      userSheet.getRange(accountId, 4).setValue(station);
+      return sendJSON({ success: true });
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
   if (body.action === "createTask") {
     if (!hasManagementAccess(user.role)) {
       return sendJSON({ success: false, message: "Management access is required to create tasks" });
@@ -574,6 +612,74 @@ function doPost(e) {
     return sendJSON({ success: true });
   }
 
+  if (body.action === "submitCombinedForms") {
+    if (!isWorkerRole(user.role)) {
+      return sendJSON({ success: false, message: "Only operators and workers can submit assigned forms" });
+    }
+    if (!Array.isArray(body.forms) || !body.forms.length || body.forms.length > 30) {
+      return sendJSON({ success: false, message: "The combined report must contain between 1 and 30 forms" });
+    }
+    const formsById = new Map(readForms(ss).map(form => [form.id, form]));
+    const submissionId = String(body.submissionId || Utilities.getUuid()).trim();
+    if (!submissionId || submissionId.length > 100) {
+      return sendJSON({ success: false, message: "Invalid submission ID" });
+    }
+    const seenForms = new Set();
+    const combinedValues = {};
+    const photoFields = [];
+    try {
+      body.forms.forEach(entry => {
+        const formId = String(entry && entry.formId || "");
+        const form = formsById.get(formId);
+        if (!form || seenForms.has(formId)) throw new Error("A form is unavailable or duplicated; refresh and try again");
+        if (form.station !== "All stations"
+          && form.station.toLowerCase() !== String(user.station || "").trim().toLowerCase()) {
+          throw new Error("One or more forms are not assigned to your station");
+        }
+        seenForms.add(formId);
+        const submittedValues = validateSubmission(form, entry.values);
+        Object.entries(submittedValues).forEach(([label, value]) => {
+          const baseLabel = form.name + " · " + label;
+          let combinedLabel = baseLabel;
+          if (Object.prototype.hasOwnProperty.call(combinedValues, combinedLabel)) {
+            combinedLabel = form.name + " (" + form.id + ") · " + label;
+          }
+          if (Object.prototype.hasOwnProperty.call(combinedValues, combinedLabel)) {
+            throw new Error("Form names must be unique to combine these submissions");
+          }
+          combinedValues[combinedLabel] = value;
+          if (value && typeof value === "object" && value.data && value.mimeType) {
+            photoFields.push({ label: combinedLabel, photo: value });
+          }
+        });
+      });
+    } catch (error) {
+      return sendJSON({ success: false, message: error.message });
+    }
+    const savedPhotos = [];
+    try {
+      photoFields.forEach((item, index) => {
+        const photo = saveTaskPhoto(item.photo, submissionId + "-" + index);
+        savedPhotos.push(photo);
+        combinedValues[item.label] = photo;
+      });
+      getSubmissionSheet(ss).appendRow([
+        submissionId,
+        Array.from(seenForms).join(","),
+        "Combined station report",
+        "Report",
+        user.name.slice(0, 120),
+        user.station.slice(0, 120),
+        new Date(),
+        JSON.stringify(combinedValues)
+      ]);
+    } catch (error) {
+      savedPhotos.forEach(trashTaskPhoto);
+      return sendJSON({ success: false, message: "Could not save the combined report: " + error.message });
+    }
+    return sendJSON({ success: true });
+  }
+
   if (body.action === "createWorkReport") {
     if (!isContractor(user.role)) {
       return sendJSON({ success: false, message: "Only contractor accounts can submit work reports" });
@@ -664,6 +770,11 @@ function hasAccountManagementAccess(role) {
 
 function isSupportedAccountRole(role) {
   return ["admin", "management", "manager", "executive", "worker", "operator", "contractor"]
+    .includes(String(role || "").trim().toLowerCase());
+}
+
+function isAccountStationApplicable(role) {
+  return !["executive", "manager", "management", "admin", "contractor"]
     .includes(String(role || "").trim().toLowerCase());
 }
 
@@ -823,13 +934,17 @@ function getSubmissionSheet(ss) {
 function readForms(ss) {
   const sheet = getFormSheet(ss);
   if (sheet.getLastRow() <= 1) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(6, sheet.getLastColumn())).getValues().map(row => ({
-    id: String(row[0]),
-    name: String(row[1]),
-    type: String(row[2]),
-    fields: JSON.parse(String(row[3] || "[]")),
-    station: String(row[5] || "All stations")
-  }));
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(6, sheet.getLastColumn())).getValues().map(row => {
+    const type = String(row[2]);
+    const fields = JSON.parse(String(row[3] || "[]"));
+    return {
+      id: String(row[0]),
+      name: String(row[1]),
+      type: type,
+      fields: ensureReportFields(type, fields),
+      station: String(row[5] || "All stations")
+    };
+  });
 }
 
 function readSubmissions(ss) {
@@ -1113,7 +1228,31 @@ function validateForm(candidate, ss) {
     seenLabels.add(normalizedLabel);
     return { label: label, type: fieldType, required: field.required === true };
   });
-  return { id: id, name: name, type: type, station: station, fields: fields };
+  return { id: id, name: name, type: type, station: station, fields: ensureReportFields(type, fields) };
+}
+
+function ensureReportFields(type, fields) {
+  if (type !== "Report") return fields;
+  const reportFields = fields.map(field => ({
+    label: String(field.label || "").trim(),
+    type: String(field.type || ""),
+    required: field.required === true
+  }));
+  const uniqueLabel = base => {
+    let label = base;
+    let suffix = 2;
+    while (reportFields.some(field => field.label.toLowerCase() === label.toLowerCase())) {
+      label = base + " (" + suffix++ + ")";
+    }
+    return label;
+  };
+  if (!reportFields.some(field => field.type === "photo")) {
+    reportFields.push({ label: uniqueLabel("Picture"), type: "photo", required: false });
+  }
+  if (!reportFields.some(field => field.label.toLowerCase() === "comment" && field.type === "textarea")) {
+    reportFields.push({ label: uniqueLabel("Comment"), type: "textarea", required: false });
+  }
+  return reportFields;
 }
 
 function validateSubmission(form, values) {

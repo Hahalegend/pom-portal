@@ -203,7 +203,7 @@
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-4">
         <div>
           <h2 class="text-sm font-bold text-white">Create a report form</h2>
-          <p class="mt-1 text-xs text-slate-400">Assign the form to all stations or one station. Operators and management can submit forms; submissions appear in Reports.</p>
+          <p class="mt-1 text-xs text-slate-400">Assign the form to all stations or one station. Operators and management can submit forms; report forms automatically include a picture and comment, and submissions appear in Reports.</p>
         </div>
         <form id="form-builder" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -283,7 +283,9 @@
       <form id="account-create-form" class="grid grid-cols-1 gap-2 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
         <input id="account-name" required maxlength="80" placeholder="Full name" aria-label="Full name" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
         <input id="account-pin" required type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="4-digit PIN" aria-label="4-digit PIN" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
-        <input id="account-station" required maxlength="80" placeholder="Station" aria-label="Station" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+        <select id="account-station" required aria-label="Station" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
+          <option value="">Loading stations...</option>
+        </select>
         <select id="account-role" aria-label="Account role" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">
           <option value="Worker">Worker</option>
           <option value="Operator">Operator</option>
@@ -695,6 +697,11 @@
       return normalizedRole === "admin" || normalizedRole === "management" || normalizedRole === "manager";
     }
 
+    function isAccountStationApplicable(role) {
+      return !["executive", "manager", "management", "admin", "contractor"]
+        .includes(String(role || "").trim().toLowerCase());
+    }
+
     function isContractor(role) {
       return String(role || "").trim().toLowerCase() === "contractor";
     }
@@ -941,6 +948,8 @@
       if (!requestingPin) return;
       container.innerHTML = '<p class="text-xs text-slate-500">Loading accounts...</p>';
       try {
+        const stations = await loadStations();
+        if (!stations) throw new Error("Could not load the shared station list");
         const data = await getAPI("getAccounts", { pin: requestingPin });
         if (!currentUser || currentUser.pin !== requestingPin) return;
         if (!Array.isArray(data.accounts)) {
@@ -957,6 +966,7 @@
     function renderAccounts() {
       const container = document.getElementById("manager-accounts-list");
       const availableRoles = ["Worker", "Operator", "Contractor", "Manager", "Management", "Executive", "Admin"];
+      const availableStations = [...monitoringStations];
       if (!managedAccounts.length) {
         container.innerHTML = '<p class="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No accounts found.</p>';
         return;
@@ -969,10 +979,19 @@
         const unknownRole = availableRoles.some(role => role.toLowerCase() === normalizedRole)
           ? ""
           : `<option value="${escapeHTML(account.role)}" selected>${escapeHTML(account.role || "Unknown role")}</option>`;
-        return `<article class="grid grid-cols-1 items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:grid-cols-[1fr_180px_auto]">
-          <div><p class="text-sm font-bold text-white">${escapeHTML(account.name)}</p><p class="mt-1 text-[11px] text-slate-400">${escapeHTML(account.station)}</p></div>
+        const stationApplicable = isAccountStationApplicable(account.role);
+        const accountStationExists = availableStations.some(station => station.toLowerCase() === account.station.toLowerCase());
+        const stationOptions = [
+          ...(!accountStationExists && account.station ? [`<option value="${escapeHTML(account.station)}" selected>${escapeHTML(account.station)} (not in station list)</option>`] : []),
+          ...availableStations.map(station => `<option value="${escapeHTML(station)}" ${station.toLowerCase() === account.station.toLowerCase() ? "selected" : ""}>${escapeHTML(station)}</option>`)
+        ].join("");
+        return `<article class="grid grid-cols-1 items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:grid-cols-[1fr_180px_180px_auto_auto]">
+          <div><p class="text-sm font-bold text-white">${escapeHTML(account.name)}</p>${stationApplicable ? `<p class="mt-1 text-[11px] text-slate-400">${escapeHTML(account.station)}</p>` : ""}</div>
           <select data-account-role="${escapeHTML(account.accountId)}" aria-label="Role for ${escapeHTML(account.name)}" class="rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">${unknownRole}${roleOptions}</select>
+          <select data-account-station="${escapeHTML(account.accountId)}" aria-label="Station for ${escapeHTML(account.name)}" class="${stationApplicable ? "" : "hidden"} rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-white">${stationOptions}</select>
+          <span data-account-station-na class="${stationApplicable ? "hidden" : "text-xs text-slate-500"}">Not applicable</span>
           <button data-account-save="${escapeHTML(account.accountId)}" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">Save role</button>
+          <button data-account-station-save="${escapeHTML(account.accountId)}" class="${stationApplicable ? "" : "hidden"} rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">Save station</button>
         </article>`;
       }).join("");
     }
@@ -1040,6 +1059,37 @@
       } finally {
         button.disabled = false;
         button.textContent = "Save role";
+      }
+    }
+
+    async function updateAccountStation(accountId, button) {
+      const account = managedAccounts.find(item => String(item.accountId) === String(accountId));
+      const stationSelect = Array.from(document.querySelectorAll("select[data-account-station]"))
+        .find(select => select.dataset.accountStation === String(accountId));
+      if (!account || !stationSelect || stationSelect.value === account.station) return;
+      button.disabled = true;
+      button.textContent = "Saving...";
+      try {
+        await postData({
+          action: "updateAccountStation",
+          pin: currentUser.pin,
+          accountId: account.accountId,
+          expectedName: account.name,
+          expectedStation: account.station,
+          expectedRole: account.role,
+          station: stationSelect.value
+        });
+        await loadAccounts();
+        const updated = managedAccounts.find(item => String(item.accountId) === String(accountId));
+        if (!updated || updated.station !== stationSelect.value) {
+          throw new Error("The server did not confirm the station change");
+        }
+        setAccountStatus(`${account.name}'s assigned station was updated to ${updated.station}.`);
+      } catch (error) {
+        setAccountStatus(`Could not update the assigned station: ${error.message}`, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save station";
       }
     }
 
@@ -1149,13 +1199,46 @@
         form.station === "All stations"
         || String(form.station || "").trim().toLowerCase() === String(currentUser.station || "").trim().toLowerCase()
       );
-      renderCustomForms(container, availableForms);
+      renderCustomForms(container, availableForms, true);
     }
 
-    function renderCustomForms(container, forms) {
+    function renderCustomForms(container, forms, combineForms = false) {
       container.innerHTML = "";
       if (!forms.length) {
         container.innerHTML = '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No forms are assigned to this station.</p>';
+        return;
+      }
+
+      if (combineForms) {
+        const card = document.createElement("form");
+        card.className = "space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4";
+        card.innerHTML = `${forms.map((form, formIndex) => `
+          <section class="space-y-3 ${formIndex ? "border-t border-slate-800 pt-4" : ""}">
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="text-sm font-bold text-white">${escapeHTML(form.name)}</h3>
+              <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(form.type)}</span>
+            </div>
+            ${(Array.isArray(form.fields) ? form.fields : []).map((field, fieldIndex) => {
+              const fieldName = `form-${formIndex}-field-${fieldIndex}`;
+              const label = escapeHTML(field.label);
+              const required = field.required ? "required" : "";
+              if (field.type === "textarea") {
+                return `<label class="block space-y-1 text-xs text-slate-400"><span>${label}${field.required ? " *" : ""}</span><textarea name="${fieldName}" rows="3" ${required} class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white"></textarea></label>`;
+              }
+              if (field.type === "checkbox") {
+                return `<label class="flex items-center gap-2 text-xs text-slate-300"><input name="${fieldName}" type="checkbox" ${required} class="accent-amber-500"> ${label}${field.required ? " *" : ""}</label>`;
+              }
+              if (field.type === "photo") {
+                return `<label class="block space-y-1 text-xs text-slate-400"><span>${label}${field.required ? " *" : ""}</span><input name="${fieldName}" type="file" accept="image/*" ${required} class="block w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white"></label>`;
+              }
+              const inputType = ["number", "date"].includes(field.type) ? field.type : "text";
+              return `<label class="block space-y-1 text-xs text-slate-400"><span>${label}${field.required ? " *" : ""}</span><input name="${fieldName}" type="${inputType}" ${required} class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs text-white"></label>`;
+            }).join("")}
+          </section>`).join("")}
+          <button type="submit" class="rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white">Submit all assigned forms</button>
+        `;
+        card.addEventListener("submit", event => submitCombinedForms(event, forms));
+        container.appendChild(card);
         return;
       }
 
@@ -1192,6 +1275,52 @@
         card.addEventListener("submit", event => submitCustomForm(event, form));
         container.appendChild(card);
       });
+    }
+
+    async function submitCombinedForms(event, forms) {
+      event.preventDefault();
+      const formElement = event.currentTarget;
+      const button = formElement.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = "Submitting...";
+      try {
+        if (!currentUser || (!hasManagementAccess(currentUser.role) && isContractor(currentUser.role))) {
+          throw new Error("Your account is not allowed to submit forms");
+        }
+        const combinedForms = [];
+        for (const [formIndex, form] of forms.entries()) {
+          const values = {};
+          for (const [fieldIndex, field] of (form.fields || []).entries()) {
+            const input = formElement.elements.namedItem(`form-${formIndex}-field-${fieldIndex}`);
+            if (field.type === "checkbox") {
+              values[field.label] = input.checked;
+            } else if (field.type === "photo") {
+              values[field.label] = input.files[0]
+                ? await encodeReportPhoto({ name: input.files[0].name, file: input.files[0] })
+                : null;
+            } else {
+              values[field.label] = input.value.trim();
+            }
+          }
+          combinedForms.push({ formId: form.id, values });
+        }
+        const submissionId = crypto.randomUUID();
+        await postData({
+          action: "submitCombinedForms",
+          pin: currentUser.pin,
+          submissionId,
+          forms: combinedForms
+        });
+        const result = await getAPI("checkSubmission", { pin: currentUser.pin, submissionId });
+        if (!result.exists) throw new Error("The server did not confirm the combined submission");
+        formElement.reset();
+        alert("All assigned forms were submitted together as one report.");
+      } catch (error) {
+        alert(`Could not submit the combined report: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Submit all assigned forms";
+      }
     }
 
     async function submitCustomForm(event, form) {
@@ -1326,11 +1455,8 @@
         }).join("");
         return `<article class="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
           <div class="flex flex-wrap items-start justify-between gap-2">
-            <div><h3 class="text-sm font-bold text-white">${escapeHTML(submission.formName)}</h3><p class="mt-1 text-[11px] text-slate-400">${escapeHTML(submission.submittedBy)} · ${escapeHTML(submission.station)} · ${escapeHTML(submission.submittedAt)}</p></div>
-            <div class="flex items-center gap-2">
-              <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(submission.type)}</span>
-              <button type="button" data-submission-print="${escapeHTML(submission.id)}" class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400"><i class="fa-solid fa-file-arrow-down mr-1"></i> Download PDF</button>
-            </div>
+            <div><h3 class="text-sm font-bold text-white">${escapeHTML(submission.formName)}</h3><p class="mt-1 text-[11px] text-slate-400">${escapeHTML(submission.submittedBy)} · ${escapeHTML(submission.station)} · ${escapeHTML(formatTaskTimestamp(submission.submittedAt) || submission.submittedAt)}</p></div>
+            <span class="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">${escapeHTML(submission.type)}</span>
           </div>
           <div class="space-y-2 text-xs">${values}</div>
         </article>`;
@@ -1354,7 +1480,10 @@
         </section>
         ${!selectedPeriod && showSubmissionStations && selectedSubmissionStation
           ? `<section class="space-y-3">
-              <h3 class="text-sm font-bold text-white">${escapeHTML(selectedSubmissionStation)} <span class="font-normal text-slate-400">· ${stationSubmissions.length} ${stationSubmissions.length === 1 ? "report" : "reports"}</span></h3>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-sm font-bold text-white">${escapeHTML(selectedSubmissionStation)} <span class="font-normal text-slate-400">· ${stationSubmissions.length} ${stationSubmissions.length === 1 ? "report" : "reports"}</span></h3>
+                ${stationSubmissions.length ? `<button type="button" data-submission-station-pdf="${escapeHTML(selectedSubmissionStation)}" class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400"><i class="fa-solid fa-file-arrow-down mr-1"></i> Download all station reports as one PDF</button>` : ""}
+              </div>
               ${selectedCards || '<p class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No reports for this station.</p>'}
             </section>`
           : ""}
@@ -1373,90 +1502,94 @@
       loadSubmissionPhotos(container);
     }
 
-    async function downloadSubmissionPdf(submissionId) {
-      const submission = customSubmissions.find(item => item.id === submissionId);
-      if (!submission) {
-        alert("This submission is no longer available. Refresh Reports and try again.");
+    async function downloadStationSubmissionsPdf(station) {
+      const submissions = customSubmissions.filter(submission =>
+        String(submission.station || "").trim().toLowerCase() === station.toLowerCase()
+      );
+      if (!submissions.length) {
+        alert("No reports are available for this station.");
         return;
       }
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
-        alert("Allow pop-ups for this site to download the report as a PDF.");
+        alert("Allow pop-ups for this site to download the combined report as a PDF.");
         return;
       }
-      printWindow.document.write("<!doctype html><title>Preparing report</title><p style='font:16px Arial,sans-serif;padding:32px'>Preparing your report...</p>");
+      printWindow.document.write("<!doctype html><title>Preparing combined report</title><p style='font:16px Arial,sans-serif;padding:32px'>Preparing the combined station report...</p>");
       try {
-        const values = await Promise.all(Object.entries(submission.values || {}).map(async ([label, value]) => {
-          if (value && typeof value === "object" && value.id) {
-            const data = await getAPI("getSubmissionPhoto", {
-              pin: currentUser.pin,
-              submissionId: submission.id,
-              field: label
-            });
-            if (!data.photo || !data.photo.data) throw new Error(`Could not load picture for "${label}"`);
-            return { label, photo: data.photo };
-          }
-          return { label, value };
+        const reportContents = await Promise.all(submissions.map(async submission => {
+          const values = await Promise.all(Object.entries(submission.values || {}).map(async ([label, value]) => {
+            if (value && typeof value === "object" && value.id) {
+              const data = await getAPI("getSubmissionPhoto", {
+                pin: currentUser.pin,
+                submissionId: submission.id,
+                field: label
+              });
+              if (!data.photo || !data.photo.data) throw new Error(`Could not load picture for "${label}" in "${submission.formName}"`);
+              return { label, photo: data.photo };
+            }
+            return { label, value };
+          }));
+          const reportDate = new Date(submission.submittedAt);
+          const submittedAt = Number.isNaN(reportDate.getTime())
+            ? submission.submittedAt
+            : reportDate.toLocaleString();
+          const reportRows = values.map(item => {
+            const content = item.photo
+              ? `<figure class="photo"><img src="data:${escapeHTML(item.photo.mimeType)};base64,${item.photo.data}" alt="${escapeHTML(item.photo.name)}"><figcaption>${escapeHTML(item.photo.name)}</figcaption></figure>`
+              : `<div class="value">${escapeHTML(typeof item.value === "boolean" ? item.value ? "Yes" : "No" : item.value ?? "—")}</div>`;
+            return `<section class="field"><h3>${escapeHTML(item.label)}</h3>${content}</section>`;
+          }).join("");
+          return `<article class="report">
+            <h2>${escapeHTML(submission.formName)}</h2>
+            <dl class="meta">
+              <div><dt>Submitted by</dt><dd>${escapeHTML(submission.submittedBy)}</dd></div>
+              <div><dt>Station</dt><dd>${escapeHTML(submission.station)}</dd></div>
+              <div><dt>Submission date and time</dt><dd>${escapeHTML(submittedAt)}</dd></div>
+              <div><dt>Report reference</dt><dd>${escapeHTML(submission.id)}</dd></div>
+            </dl>
+            ${reportRows || '<p>No details were recorded.</p>'}
+          </article>`;
         }));
         if (!currentUser) throw new Error("Your session ended. Sign in again to download this report.");
         const generatedAt = new Date().toLocaleString();
-        const reportDate = new Date(submission.submittedAt);
-        const submittedAt = Number.isNaN(reportDate.getTime())
-          ? submission.submittedAt
-          : reportDate.toLocaleString();
-        const reportRows = values.map(item => {
-          const content = item.photo
-            ? `<figure class="photo"><img src="data:${escapeHTML(item.photo.mimeType)};base64,${item.photo.data}" alt="${escapeHTML(item.photo.name)}"><figcaption>${escapeHTML(item.photo.name)}</figcaption></figure>`
-            : `<div class="value">${escapeHTML(typeof item.value === "boolean" ? item.value ? "Yes" : "No" : item.value ?? "—")}</div>`;
-          return `<section class="field"><h2>${escapeHTML(item.label)}</h2>${content}</section>`;
-        }).join("");
-        const safeFileName = String(submission.formName || "Submission")
+        const safeFileName = String(station || "Station")
           .replace(/[^A-Za-z0-9_-]+/g, "-")
           .replace(/^-|-$/g, "")
-          .slice(0, 60) || "Submission";
-        const html = `<!doctype html>
-          <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-          <title>POM-${safeFileName}-${escapeHTML(submission.id)}</title>
+          .slice(0, 60) || "Station";
+        const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>POM-${safeFileName}-Station-Reports</title>
           <style>
             *{box-sizing:border-box}body{margin:0;background:#eef1f5;color:#1d2939;font:14px/1.55 Arial,Helvetica,sans-serif}
             .toolbar{position:sticky;top:0;z-index:2;display:flex;justify-content:center;padding:14px;background:#172b4d}
             .toolbar button{border:0;border-radius:6px;background:#e5a900;color:#172b4d;padding:11px 20px;font-weight:700;cursor:pointer}
-            .sheet{position:relative;max-width:850px;min-height:1050px;margin:28px auto;padding:52px 62px;background:#fff;box-shadow:0 8px 30px #15223820}
+            .sheet{position:relative;max-width:850px;margin:28px auto;padding:52px 62px;background:#fff;box-shadow:0 8px 30px #15223820}
             .brand{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:3px solid #e5a900;padding-bottom:22px}
             .brand-name{color:#172b4d;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
             .brand-subtitle{margin-top:4px;color:#667085;font-size:11px}
-            .doc-type{color:#667085;font-size:10px;font-weight:700;letter-spacing:1.5px;text-align:right;text-transform:uppercase}
-            h1{margin:30px 0 6px;color:#172b4d;font-size:27px;line-height:1.2}
-            .intro{margin:0 0 24px;color:#667085}
+            h1{margin:30px 0 6px;color:#172b4d;font-size:27px;line-height:1.2}.intro{margin:0 0 24px;color:#667085}
+            .report{padding:26px 0;border-bottom:2px solid #172b4d}.report + .report{break-before:page}
+            .report>h2{margin:0 0 14px;color:#172b4d;font-size:21px}
             .meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px;margin:25px 0 34px;border:1px solid #d9e0e8;border-radius:8px;background:#f8fafc}
             .meta div{padding:12px 15px;border-bottom:1px solid #e4e9ef}.meta div:nth-last-child(-n+2){border-bottom:0}
             .meta dt{color:#667085;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
             .meta dd{margin:4px 0 0;color:#172b4d;font-weight:600;overflow-wrap:anywhere}
-            .section-title{margin:0 0 12px;color:#172b4d;font-size:12px;letter-spacing:1px;text-transform:uppercase}
             .field{break-inside:avoid;padding:15px 0;border-top:1px solid #e4e9ef}
-            .field h2{margin:0 0 7px;color:#667085;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+            .field h3{margin:0 0 7px;color:#667085;font-size:10px;letter-spacing:1px;text-transform:uppercase}
             .value{white-space:pre-wrap;overflow-wrap:anywhere;color:#1d2939}
             .photo{margin:0}.photo img{display:block;max-width:100%;max-height:480px;object-fit:contain;border:1px solid #d9e0e8;border-radius:5px}
             .photo figcaption{margin-top:5px;color:#667085;font-size:10px}
             footer{display:flex;justify-content:space-between;gap:20px;margin-top:42px;padding-top:12px;border-top:1px solid #d9e0e8;color:#667085;font-size:9px}
             @page{size:A4;margin:16mm}
-            @media print{body{background:#fff}.toolbar{display:none}.sheet{max-width:none;min-height:0;margin:0;padding:0;box-shadow:none}.field,.meta{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+            @media print{body{background:#fff}.toolbar{display:none}.sheet{max-width:none;margin:0;padding:0;box-shadow:none}.field,.meta{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
             @media(max-width:600px){.sheet{margin:0;padding:26px 20px}.meta{grid-template-columns:1fr}.meta div:nth-last-child(2){border-bottom:1px solid #e4e9ef}}
           </style></head><body>
           <div class="toolbar"><button onclick="window.print()">Download / Save as PDF</button></div>
           <main class="sheet">
-            <header class="brand"><div><div class="brand-name">POM Operations</div><div class="brand-subtitle">Operations Portal · Official Submission</div></div><div class="doc-type">${escapeHTML(submission.type)} report</div></header>
-            <h1>${escapeHTML(submission.formName)}</h1>
-            <p class="intro">Submitted operational record</p>
-            <dl class="meta">
-              <div><dt>Submitted by</dt><dd>${escapeHTML(submission.submittedBy)}</dd></div>
-              <div><dt>Station</dt><dd>${escapeHTML(submission.station)}</dd></div>
-              <div><dt>Submission date</dt><dd>${escapeHTML(submittedAt)}</dd></div>
-              <div><dt>Reference</dt><dd>${escapeHTML(submission.id)}</dd></div>
-            </dl>
-            <h2 class="section-title">Submission details</h2>
-            ${reportRows || '<p>No details were recorded.</p>'}
-            <footer><span>POM Operations Portal · ${escapeHTML(submission.id)}</span><span>Generated ${escapeHTML(generatedAt)}</span></footer>
+            <header class="brand"><div><div class="brand-name">POM Operations</div><div class="brand-subtitle">Operations Portal · Combined Station Report</div></div><div>${submissions.length} submissions</div></header>
+            <h1>${escapeHTML(station)} reports</h1><p class="intro">All ${submissions.length} reports submitted for this station</p>
+            ${reportContents.join("")}
+            <footer><span>POM Operations Portal · ${escapeHTML(station)}</span><span>Generated ${escapeHTML(generatedAt)}</span></footer>
           </main>
           <script>window.addEventListener("load",()=>{const images=Array.from(document.images);Promise.all(images.map(image=>image.decode().catch(()=>{}))).then(()=>setTimeout(()=>window.print(),300))})<\/script>
           </body></html>`;
@@ -1465,7 +1598,7 @@
         printWindow.document.close();
       } catch (error) {
         printWindow.close();
-        alert(`Could not create the report PDF: ${error.message}`);
+        alert(`Could not create the combined station PDF: ${error.message}`);
       }
     }
 
@@ -2381,6 +2514,13 @@
           ...data.stations.map(station => new Option(station, station))
         );
         if (data.stations.includes(previousFormStation)) formStation.value = previousFormStation;
+        const accountStation = document.getElementById("account-station");
+        const previousAccountStation = accountStation.value;
+        accountStation.replaceChildren(
+          new Option("Choose a station", ""),
+          ...data.stations.map(station => new Option(station, station))
+        );
+        if (data.stations.includes(previousAccountStation)) accountStation.value = previousAccountStation;
         document.getElementById("remove-station-button").disabled = data.stations.length <= 1;
         if (data.stations.length <= 1) {
           document.getElementById("remove-station-button").title = "At least one station must remain";
@@ -2484,6 +2624,17 @@
     document.getElementById("manager-accounts-list").addEventListener("click", event => {
       const button = event.target.closest("button[data-account-save]");
       if (button) updateAccountRole(button.dataset.accountSave, button);
+      const stationButton = event.target.closest("button[data-account-station-save]");
+      if (stationButton) updateAccountStation(stationButton.dataset.accountStationSave, stationButton);
+    });
+    document.getElementById("manager-accounts-list").addEventListener("change", event => {
+      const roleSelect = event.target.closest("select[data-account-role]");
+      if (!roleSelect) return;
+      const accountRow = roleSelect.closest("article");
+      const stationApplicable = isAccountStationApplicable(roleSelect.value);
+      accountRow.querySelector("[data-account-station]").classList.toggle("hidden", !stationApplicable);
+      accountRow.querySelector("[data-account-station-na]").classList.toggle("hidden", stationApplicable);
+      accountRow.querySelector("[data-account-station-save]").classList.toggle("hidden", !stationApplicable);
     });
     document.getElementById("work-report-form").addEventListener("submit", submitWorkReport);
     document.getElementById("contractor-company-login").addEventListener("click", () => accessContractorCompany(false));
@@ -2547,8 +2698,8 @@
         renderSubmissions();
         return;
       }
-      const button = event.target.closest("button[data-submission-print]");
-      if (button) downloadSubmissionPdf(button.dataset.submissionPrint);
+      const pdfButton = event.target.closest("button[data-submission-station-pdf]");
+      if (pdfButton) downloadStationSubmissionsPdf(pdfButton.dataset.submissionStationPdf);
     });
     document.getElementById("m-tasks-container").addEventListener("click", event => {
       const toggleButton = event.target.closest("button[data-monitor-action='toggle-stations']");
@@ -2559,7 +2710,10 @@
       }
       const stationButton = event.target.closest("button[data-monitor-station]");
       if (stationButton) {
-        selectedMonitoringStation = stationButton.dataset.monitorStation;
+        const station = stationButton.dataset.monitorStation;
+        selectedMonitoringStation = selectedMonitoringStation.toLowerCase() === station.toLowerCase()
+          ? ""
+          : station;
         showMonitoringStations = false;
         renderManagementTasks();
         return;
